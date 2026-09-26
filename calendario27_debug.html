@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DEBUG: Planificador 2027</title>
+    
+    <script src="https://cdn.jsdelivr.net/npm/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    <script src="https://cdn.jsdelivr.net/npm/lucide-react/dist/umd/lucide-react.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <script>
+      window.onload = function() {
+        console.log("React:", !!window.React);
+        console.log("ReactDOM:", !!window.ReactDOM);
+        console.log("LucideReact:", !!window.LucideReact);
+        console.log("Babel:", !!window.Babel);
+        
+        if (!window.React || !window.LucideReact) {
+          document.getElementById('debug-log').innerHTML += '<p style="color:red">ERROR: Faltan librerías críticas.</p>';
+        }
+      };
+      
+      window.onerror = function(msg, url, line, col, error) {
+        document.getElementById('debug-log').innerHTML += `<p style="color:red">ERROR: ${msg} (${line}:${col})</p>`;
+        return false;
+      };
+    </script>
+</head>
+<body class="bg-slate-100">
+    <div id="debug-log" style="position:fixed; top:0; right:0; background:rgba(255,255,255,0.9); padding:10px; border:1px solid #ccc; z-index:9999; font-family:monospace; font-size:12px; max-width:300px;">
+      <b>DEBUG LOG:</b><br/>
+    </div>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        try {
+          const { useState, useMemo, useEffect } = React;
+          const { Calendar, AlertTriangle, Info, RefreshCw, Calculator, LayoutGrid, PlaneTakeoff, Settings, Flame, Zap, Users } = LucideReact || {};
+
+          if (!LucideReact) { console.error("LucideReact no disponible"); }
+
+          // ... (Copying the rest of the App component logic here)
+        } catch (e) {
+          console.error("Babel error:", e);
+          document.getElementById('debug-log').innerHTML += '<p style="color:red">BABEL EXEC ERROR: ' + e.message + '</p>';
+        }
+    </script>
+</body>
+</html>
