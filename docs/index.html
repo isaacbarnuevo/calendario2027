@@ -146,6 +146,13 @@
         function App() {
           const [selectedYear,    setSelectedYear]  = useState(() => loadVal('pln_year', 2027));
           const [turn,            setTurn]          = useState(() => loadVal('pln_turn', 1));
+          const [initialTurn2027, setInitialTurn2027] = useState(() => loadVal('pln_t2027', 1));
+          const [autoRotateTurn,  setAutoRotateTurn]= useState(() => loadVal('pln_autorot', true));
+          const [showCalc2026Modal, setShowCalc2026Modal] = useState(false);
+          const [worked2026Input, setWorked2026Input] = useState(() => loadVal('pln_w2026', 225));
+          const [rmOutside2026,   setRmOutside2026] = useState(() => loadVal('pln_rm2026', false));
+          const [showPersonalBridges, setShowPersonalBridges] = useState(() => loadVal('pln_pbridge', true));
+
           const [restGroup,       setRestGroup]     = useState(() => loadVal('pln_rg', loadVal('pln_restGroup', 2)));
           const [patternShift,    setPatternShift]  = useState(() => loadVal('pln_pshift', 0));
           const [useCustomOff,    setUseCustomOff]  = useState(() => loadVal('pln_useCustomOff', false));
@@ -211,6 +218,11 @@
           useEffect(() => saveSet('pln_conv_days', customConvDays),[customConvDays]);
           useEffect(() => localStorage.setItem('pln_year',  JSON.stringify(selectedYear)), [selectedYear]);
           useEffect(() => localStorage.setItem('pln_turn',  JSON.stringify(turn)),         [turn]);
+          useEffect(() => localStorage.setItem('pln_t2027', JSON.stringify(initialTurn2027)), [initialTurn2027]);
+          useEffect(() => localStorage.setItem('pln_autorot', JSON.stringify(autoRotateTurn)), [autoRotateTurn]);
+          useEffect(() => localStorage.setItem('pln_w2026', JSON.stringify(worked2026Input)), [worked2026Input]);
+          useEffect(() => localStorage.setItem('pln_rm2026', JSON.stringify(rmOutside2026)), [rmOutside2026]);
+          useEffect(() => localStorage.setItem('pln_pbridge', JSON.stringify(showPersonalBridges)), [showPersonalBridges]);
           useEffect(() => localStorage.setItem('pln_rg',    JSON.stringify(restGroup)),    [restGroup]);
           useEffect(() => localStorage.setItem('pln_pshift',JSON.stringify(patternShift)), [patternShift]);
           useEffect(() => localStorage.setItem('pln_useCustomOff', JSON.stringify(useCustomOff)), [useCustomOff]);
@@ -360,8 +372,16 @@
 
   useEffect(() => { if (turn > optPositions) setTurn(optPositions); }, [optPositions, turn]);
 
+  const getRotatedTurnForYear = (baseTurn2027, targetYear) => {
+    if (targetYear < 2027) return baseTurn2027;
+    return ((baseTurn2027 - 1 + (targetYear - 2027)) % 13 + 13) % 13 + 1;
+  };
+
   const handleYearChange = (newYear) => {
     setSelectedYear(newYear);
+    if (autoRotateTurn && newYear >= 2027) {
+      setTurn(getRotatedTurnForYear(initialTurn2027, newYear));
+    }
     setRequestedDays(new Set());
     setPlanA(new Set());
     setPlanB(new Set());
@@ -550,6 +570,56 @@
   const baseOffDays = useMemo(() => {
     return (useCustomOff && customOffDays.size > 0) ? customOffDays : patternOffDays;
   }, [useCustomOff, customOffDays, patternOffDays]);
+
+  // ── Puentes Personales (J+V previos o L+M posteriores a tu finde LIB) y Semanas Largas (5 días L-V) ──
+  const { personalBridgeDays, longWeekDays } = useMemo(() => {
+    const pBridges = new Set();
+    const lWeeks = new Set();
+    const addDays = (date, days) => new Date(date.getTime() + days * 86400000);
+    const fmt = d => `${d.getMonth() + 1}-${d.getDate()}`;
+
+    for (let m = 1; m <= 12; m++) {
+      const daysInM = new Date(selectedYear, m, 0).getDate();
+      for (let d = 1; d <= daysInM; d++) {
+        const cur = new Date(selectedYear, m - 1, d);
+        const dow = cur.getDay(); // 0=Dom, 1=Lun, ..., 6=Sab
+
+        // Si es Sábado y libras Sábado + Domingo -> Jueves (-2) y Viernes (-1) previos, o Lunes (+2) y Martes (+3) posteriores
+        if (dow === 6) {
+          const sun = addDays(cur, 1);
+          const satKey = fmt(cur);
+          const sunKey = sun.getFullYear() === selectedYear ? fmt(sun) : null;
+          if (baseOffDays.has(satKey) && sunKey && baseOffDays.has(sunKey)) {
+            const thu = addDays(cur, -2), fri = addDays(cur, -1);
+            const mon = addDays(cur, 2),  tue = addDays(cur, 3);
+            [thu, fri, mon, tue].forEach(cand => {
+              if (cand.getFullYear() === selectedYear) {
+                const ck = fmt(cand);
+                if (!baseOffDays.has(ck) && !vacationDays.has(ck)) pBridges.add(ck);
+              }
+            });
+          }
+        }
+
+        // Si es Lunes, comprobar si trabajas los 5 días L-M-X-J-V seguidos (semana larga de 5 días)
+        if (dow === 1) {
+          const weekKeys = [];
+          let allWork = true;
+          for (let i = 0; i < 5; i++) {
+            const wd = addDays(cur, i);
+            if (wd.getFullYear() !== selectedYear) { allWork = false; break; }
+            const wk = fmt(wd);
+            if (baseOffDays.has(wk) || vacationDays.has(wk)) { allWork = false; break; }
+            weekKeys.push(wk);
+          }
+          if (allWork && weekKeys.length === 5) {
+            weekKeys.forEach(wk => lWeeks.add(wk));
+          }
+        }
+      }
+    }
+    return { personalBridgeDays: pBridges, longWeekDays: lWeeks };
+  }, [selectedYear, baseOffDays, vacationDays]);
 
   const toggleJanSyncDay = (day) => {
     const key = `1-${day}`;
@@ -788,17 +858,23 @@
     // Apply half-quota rule based on morning/afternoon split
     initial = shiftPhase === 'manana' ? Math.ceil(initial / 2) : Math.floor(initial / 2);
 
+    const dKey      = `${monthId}-${day}`;
     const tp        = (currentTurn - 1) / Math.max(optPositions - 1, 1);
     const isSummer  = monthId===7 || monthId===8 || (monthId===6 && day>15);
-    const isPuente  = highDemandDays.has(`${monthId}-${day}`) && !isWeekend;
+    const isPuente  = highDemandDays.has(dKey) && !isWeekend;
+    const isPersonalBridge = personalBridgeDays.has(dKey) && !isPuente && !isSummer && !isWeekend;
     const isGood    = (monthId===5||monthId===9||monthId===12||(monthId===6&&day<=15)) && !isWeekend && !isPuente;
 
+    // Efecto Cascada Opción A:
+    // 1º Verano puro (agota T6-T7), 2º Fines de semana (T7), 3º Puentes nacionales (T8),
+    // 4º Puentes personales (solo compite el 25% de tu rotación -> se conservan incluso en T13 en temp. media/baja)
     let factor = 1;
-    if (isPuente)   factor = 2.1;
-    else if (isSummer)   factor = 1.9;
-    else if (isWeekend)  factor = 1.7;
-    else if (isGood)     factor = 1.1;
-    else                 factor = 0.6;
+    if (isPuente)              factor = 1.75; // Agota hacia T8
+    else if (isSummer)         factor = 1.95; // Agota hacia T6-T7
+    else if (isWeekend)        factor = 1.85; // Agota hacia T7
+    else if (isPersonalBridge) factor = 0.65; // Solo compite el 25% -> sobrevive incluso en T13
+    else if (isGood)           factor = 1.05;
+    else                       factor = 0.55;
 
     if (shiftPhase === 'tarde') {
       factor = factor * 0.70; // 30% less aggressive depletion in the afternoon since many have exhausted credit
@@ -819,7 +895,7 @@
     return count;
   })();
 
-  // ── Smart suggestion (Prioridades personalizadas) ──
+  // ── Smart suggestion (Prioridades Opción A: Verano, No Lectivos, Puentes Personales 4d y Reducción Semanas de 5d) ──
   const suggestOptimalDays = () => {
     const creditNeeded = Math.floor(stats.credit);
     if (creditNeeded <= 0) { showError('No hay días de crédito disponibles.'); return; }
@@ -842,7 +918,7 @@
       const isVac = vacationDays.has(k);
 
       // ── Días marcados manualmente como No Lectivos tienen máxima prioridad tras verano ──
-      if (nonSchoolDays.has(k) && !isVac) return 25;
+      if (nonSchoolDays.has(k) && !isVac) return 22;
 
       // ── Julio y Agosto (solo si no están en vacaciones) ──
       if ((m===7||m===8) && !isVac) {
@@ -852,22 +928,29 @@
       // ── Junio ──
       if (m===6 && !isVac) {
         const isNoLectivo = highDemandDays.has(k) || nationalHolidays.has(k) || nonSchoolDays.has(k);
-        if (!isWE && isNoLectivo) return 30;  // P3a entre semana no lectivo junio
-        if (isWE)                 return 40;  // P3a finde de junio
-        if (!isWE)                return 45;  // Junio entre semana normal (algo peor)
+        if (!isWE && isNoLectivo) return 28;  // P3a entre semana no lectivo junio
+        if (isWE)                 return 36;  // P3a finde de junio
+        if (!isWE && personalBridgeDays.has(k)) return 32;
+        if (!isWE)                return 45;  // Junio entre semana normal
       }
 
       // ── Domingos especiales (Ramos, Pascua, Pentecostés) ──
-      if (specialSundays.has(k)) return 35;
+      if (specialSundays.has(k)) return 34;
+
+      // ── Puentes Personales de 4 días (J+V previos o L+M posteriores a tu finde LIB) ──
+      if (!isWE && personalBridgeDays.has(k)) return 33;
 
       // ── Días no lectivos / festivos del año (resto de meses) ──
-      if (nationalHolidays.has(k) || highDemandDays.has(k)) return 50;
+      if (nationalHolidays.has(k) || highDemandDays.has(k)) return 48;
 
       // ── Convivencia de Transmisión ──
-      if (convivenciaDays.has(k)) return 55;
+      if (convivenciaDays.has(k)) return 52;
 
       // ── Fines de semana del resto del año ──
-      if (isWE) return 60;
+      if (isWE) return 58;
+
+      // ── Semanas largas de 5 días L-V (reducir semana de 5d a 4d) ──
+      if (!isWE && longWeekDays.has(k)) return 64;
 
       // ── Entre semana de Oct / Nov / Dic (último recurso L-V) ──
       if (m===10||m===11||m===12) return 70;
@@ -908,7 +991,7 @@
     }
 
     setRequestedDays(newDays);
-    showError(`Sugeridos ${newDays.size} días óptimos (${lvChosen} L-V obligatorios). Ajusta a tu gusto.`);
+    showError(`Sugeridos ${newDays.size} días óptimos (${lvChosen} L-V obligatorios, priorizando verano, no lectivos y tus 🌉 Puentes Personales).`);
   };
 
   // ── Export ICS ──
@@ -1204,6 +1287,8 @@
       const isExhausted = exhaustedDays.has(dateKey);
       const isConvivencia = convivenciaDays.has(dateKey);
       const isNoLectivo = nonSchoolDays.has(dateKey);
+      const isPersonalBridge = personalBridgeDays.has(dateKey);
+      const isLongWeek = longWeekDays.has(dateKey);
       const holidayName = HOLIDAY_NAMES[dateKey] || null;
       const isJanSynced = janSyncDays.has(dateKey);
       
@@ -1223,6 +1308,7 @@
       else if (isPB)   cls += 'bg-orange-50 text-orange-900 border-2 border-dashed border-orange-500 shadow-sm cursor-pointer hover:bg-orange-100';
       else if (isPC)   cls += 'bg-slate-50 text-slate-700 border-2 border-dashed border-slate-500 shadow-sm cursor-pointer hover:bg-slate-100';
       else if (isNoLectivo) cls += 'bg-cyan-50 hover:bg-cyan-100 cursor-pointer border-cyan-300';
+      else if (showPersonalBridges && isPersonalBridge && monthData.id !== 1) cls += 'bg-teal-50/70 hover:bg-teal-100 cursor-pointer border-teal-200';
       else if (quota===0 && monthData.id!==1) cls += 'bg-red-50 text-red-400 cursor-not-allowed opacity-70';
       else if (isToday)  cls += 'bg-blue-100 ring-2 ring-inset ring-blue-500 cursor-pointer';
       else if (isPuente) cls += 'bg-orange-50 hover:bg-orange-100 cursor-pointer border-orange-200';
@@ -1240,7 +1326,7 @@
              onMouseEnter={(e) => setTooltip({x:e.clientX, y:e.clientY, day,
                monthName:monthData.name, dow:DOW_NAMES[(monthData.startDay+day-1)%7],
                quota:isOff||isVac?null:quota, isOff, isVac, isReq, isPuente,
-               isConvivencia, isNoLectivo, holiday:holidayName,
+               isConvivencia, isNoLectivo, isPersonalBridge, isLongWeek, holiday:holidayName,
                planType:isPA?'A':isPB?'B':isPC?'C':null,
                note:hasNote?notes[dateKey]:null})}
              onMouseLeave={()=>setTooltip(null)}
@@ -1258,7 +1344,7 @@
           <div className="flex justify-between items-start leading-none relative z-10 gap-0.5">
             <span className={`font-black text-xs md:text-sm ${
               !isOff&&!isVac&&!isReq&&!isExhausted&&!isPlan
-                ? (holidayName || isWeekend)?'text-red-600':isPuente?'text-orange-700':'text-slate-700'
+                ? (holidayName || isWeekend)?'text-red-600':isPuente?'text-orange-700':(showPersonalBridges && isPersonalBridge)?'text-teal-800':'text-slate-700'
                 : ''}`}>
               {day}
             </span>
@@ -1269,6 +1355,9 @@
               {isReq  && <span className="text-[7px] md:text-[8px] bg-white text-green-700 font-black px-0.5 rounded">PED</span>}
               {isConvivencia && <span className="text-[7px] md:text-[8px] bg-purple-600 text-white font-black px-0.5 rounded">CONV</span>}
               {isNoLectivo && <span className="text-[7px] md:text-[8px] bg-cyan-600 text-white font-black px-0.5 rounded">🎒</span>}
+              {showPersonalBridges && isPersonalBridge && !isReq && !isOff && !isVac && monthData.id !== 1 && (
+                <span className="text-[7px] md:text-[8px] bg-teal-600 text-white font-black px-0.5 rounded hidden sm:inline" title="Puente Personal (4 días con tu finde LIB)">🌉</span>
+              )}
               {isPA && <span className="text-[7px] md:text-[8px] bg-yellow-400 text-yellow-900 font-black px-0.5 rounded hidden sm:inline">PLA</span>}
               {isPB && <span className="text-[7px] md:text-[8px] bg-orange-400 text-orange-900 font-black px-0.5 rounded hidden sm:inline">PLB</span>}
               {isPC && <span className="text-[7px] md:text-[8px] bg-slate-400 text-white font-black px-0.5 rounded hidden sm:inline">PLC</span>}
@@ -1290,9 +1379,11 @@
                   ?(isPA?'bg-yellow-200 text-yellow-800 border-yellow-300':(isPB?'bg-orange-200 text-orange-900 border-orange-300':'bg-slate-200 text-slate-800 border-slate-300'))
                   :isNoLectivo
                     ?'bg-cyan-100 text-cyan-900 border border-cyan-300'
-                    :isPuente
-                      ?'bg-orange-100 text-orange-800 border border-orange-200'
-                      :'bg-slate-100 text-slate-600 border border-slate-200'}`}>
+                    :(showPersonalBridges && isPersonalBridge)
+                      ?'bg-teal-100 text-teal-900 border border-teal-300'
+                      :isPuente
+                        ?'bg-orange-100 text-orange-800 border border-orange-200'
+                        :'bg-slate-100 text-slate-600 border border-slate-200'}`}>
               {quota}
             </div>
           )}
@@ -1350,11 +1441,14 @@
     );
   };
 
+  const target2026 = rmOutside2026 ? 215 : 216;
+  const diff2026   = Math.max(0, Number(worked2026Input || 0) - target2026);
+
   return (
     <div data-theme={darkMode?"dark":undefined} className="min-h-screen bg-slate-100 p-1 sm:p-2 md:p-4 font-sans text-slate-800 pb-24 md:pb-6">
       {tooltip && (
         <div className="fixed z-[9999] pointer-events-none" style={{left:tooltip.x+14,top:tooltip.y-12}}>
-          <div className="bg-slate-900 text-white text-[11px] rounded-xl shadow-2xl p-3 min-w-[160px] border border-slate-700">
+          <div className="bg-slate-900 text-white text-[11px] rounded-xl shadow-2xl p-3 min-w-[175px] border border-slate-700">
             <div className="font-black text-xs mb-1">{tooltip.dow} {tooltip.day} {tooltip.monthName}</div>
             {tooltip.holiday && <div className="text-yellow-400 font-bold mb-0.5">🎉 {tooltip.holiday}</div>}
             {tooltip.isOff && <div className="text-slate-400">🔵 Día LIB (Descanso)</div>}
@@ -1362,6 +1456,12 @@
             {tooltip.isReq && <div className="text-green-400 font-black">✅ PEDIDO</div>}
             {tooltip.isConvivencia && <div className="text-purple-300 font-black">🤝 Convivencia Transmisión</div>}
             {tooltip.isNoLectivo && <div className="text-cyan-300 font-black">🎒 Día No Lectivo (Cole)</div>}
+            {tooltip.isPersonalBridge && !tooltip.isOff && !tooltip.isVac && (
+              <div className="text-teal-300 font-bold">🌉 Puente Personal (4d con tu finde LIB · compite solo 25%)</div>
+            )}
+            {tooltip.isLongWeek && !tooltip.isOff && !tooltip.isVac && (
+              <div className="text-sky-300">5️⃣ Semana de 5 días L-V (ideal reducir a 4d)</div>
+            )}
             {tooltip.planType && <div className="text-orange-300">📌 Plan {tooltip.planType}</div>}
             {tooltip.isPuente && <div className="text-orange-400">🔥 Alta demanda</div>}
             {tooltip.note && <div className="text-purple-300 italic mt-0.5">📝 {tooltip.note}</div>}
@@ -1370,6 +1470,93 @@
                 Cupo T{currentTurn}: {tooltip.quota===0?'AGOTADO':tooltip.quota}
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* ── MODAL CALCULADORA DE CRÉDITOS 2026 (216d) vs 2027 OPCIÓN A (202d) ── */}
+      {showCalc2026Modal && (
+        <div className="fixed inset-0 z-[9998] flex items-center justify-center p-3" style={{background:'rgba(0,0,0,0.6)'}} onClick={()=>setShowCalc2026Modal(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl p-5 max-w-lg w-full border border-slate-200 max-h-[90vh] overflow-y-auto" onClick={e=>e.stopPropagation()}>
+            <div className="flex justify-between items-center mb-3 pb-2 border-b border-slate-200">
+              <h3 className="font-black text-slate-900 text-base flex items-center gap-2">
+                🧮 Calculadora de Créditos (2026 vs Opción A 2027)
+              </h3>
+              <button onClick={()=>setShowCalc2026Modal(false)} className="text-slate-400 hover:text-slate-700 font-black text-lg">✕</button>
+            </div>
+
+            <div className="space-y-4 text-xs text-slate-700">
+              {/* Bloque 1: Opción A 2027 */}
+              <div className="bg-blue-50 p-3.5 rounded-xl border border-blue-200">
+                <h4 className="font-black text-blue-900 uppercase text-xs mb-1">1️⃣ Créditos propios de {selectedYear} (Opción A · Jornada 8h = 202 días)</h4>
+                <p className="text-[11px] text-blue-800 mb-2">
+                  En la <b>Opción A (lienzo en blanco, sin días preasignados de oficio)</b> se garantiza siempre saldo a favor restando las <b>202 jornadas anuales estipuladas</b> a los días de trabajo de tu cuadrante:
+                </p>
+                <div className="bg-white p-2.5 rounded-lg border border-blue-200 grid grid-cols-4 gap-1 text-center mb-2">
+                  <div>
+                    <span className="block text-[9px] text-slate-400 font-bold uppercase">Año {selectedYear}</span>
+                    <span className="font-black text-sm text-slate-800">{stats.workedDays + stats.offDaysCount + stats.vacDaysCount}d</span>
+                  </div>
+                  <div>
+                    <span className="block text-[9px] text-slate-400 font-bold uppercase">- LIB / VAC</span>
+                    <span className="font-black text-sm text-slate-600">-{stats.offDaysCount + stats.vacDaysCount}d</span>
+                  </div>
+                  <div>
+                    <span className="block text-[9px] text-slate-400 font-bold uppercase">= Cuadrante</span>
+                    <span className="font-black text-sm text-blue-700">{stats.workedDays}d</span>
+                  </div>
+                  <div className="bg-blue-100 rounded p-0.5">
+                    <span className="block text-[9px] text-blue-800 font-black uppercase">- 202 Jorn.</span>
+                    <span className="font-black text-base text-blue-900">+{stats.autoCredit} CR</span>
+                  </div>
+                </div>
+                <button
+                  onClick={() => { setManualCredit(stats.autoCredit); setManualObligLV(Math.min(7, stats.autoCredit)); setShowCalc2026Modal(false); notify(`Aplicados ${stats.autoCredit} días de crédito de la Opción A (7 L-V + ${Math.max(0, stats.autoCredit-7)} libres).`, 'success'); }}
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-2 rounded-lg text-xs shadow">
+                  Usar cálculo automático Opción A ({stats.autoCredit} días: 7 L-V + {Math.max(0, stats.autoCredit - 7)} libres)
+                </button>
+              </div>
+
+              {/* Bloque 2: Regularización a año vencido de 2026 */}
+              <div className="bg-amber-50 p-3.5 rounded-xl border border-amber-200">
+                <h4 className="font-black text-amber-900 uppercase text-xs mb-1">2️⃣ Regularización a año vencido de 2026 (Sistema 7,5h = 216 días)</h4>
+                <p className="text-[11px] text-amber-800 mb-2">
+                  Según la <b>Agenda SCMM 2026 (pág. 6 y 42)</b>, el cómputo de 2026 es de <b>216 días (1.620 h)</b> —o <b>215 días</b> con RM fuera de jornada— y se liquida a año vencido en el listado del <b>15 de enero</b>:
+                </p>
+                <div className="flex items-center gap-3 mb-2 bg-white p-2.5 rounded-lg border border-amber-200">
+                  <div className="flex-1">
+                    <label className="block text-[10px] font-black text-amber-900 uppercase mb-0.5">Días trabajados en 2026:</label>
+                    <input
+                      type="number"
+                      value={worked2026Input}
+                      onChange={e => setWorked2026Input(parseInt(e.target.value, 10) || 0)}
+                      className="w-full border border-amber-300 rounded px-2 py-1 font-black text-sm text-amber-900"
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <label className="flex items-center gap-1.5 cursor-pointer text-[11px] font-bold text-amber-900">
+                      <input type="checkbox" checked={rmOutside2026} onChange={e => setRmOutside2026(e.target.checked)} className="accent-amber-600" />
+                      RM fuera de jornada (215d)
+                    </label>
+                    <div className="mt-1 text-[11px] font-black text-amber-800">
+                      Exceso 2026: <span className="text-sm text-emerald-700">+{diff2026} días</span> <span className="text-[10px] font-normal">({worked2026Input} - {target2026})</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => { setManualCredit(diff2026); setShowCalc2026Modal(false); notify(`Aplicados ${diff2026} días según tu cómputo de 2026.`, 'success'); }}
+                    className="flex-1 bg-amber-600 hover:bg-amber-700 text-white font-black py-2 px-2 rounded-lg text-[11px]">
+                    Usar solo exceso 2026 ({diff2026}d)
+                  </button>
+                  <button
+                    onClick={() => { const tot = stats.autoCredit + diff2026; setManualCredit(tot); setShowCalc2026Modal(false); notify(`Aplicados ${tot} días (${stats.autoCredit} Opción A + ${diff2026} exceso 2026).`, 'success'); }}
+                    className="flex-1 bg-emerald-700 hover:bg-emerald-800 text-white font-black py-2 px-2 rounded-lg text-[11px]">
+                    Sumar Opción A + 2026 ({stats.autoCredit + diff2026}d)
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -1527,10 +1714,10 @@
               )}
             </div>
 
-            {/* 2. Días que te deben (Nombramiento) editable directamente */}
+            {/* 2. Días que te deben (Nombramiento) editable directamente + Calculadora 2026/27 + Puentes Personales */}
             <div className="flex flex-wrap items-center gap-2 bg-slate-800/90 p-2 rounded-xl border border-slate-700">
               <div className="flex items-center gap-1.5">
-                <span className="text-[10px] md:text-xs font-black uppercase text-emerald-300">🎫 Días que me deben (Nombramiento):</span>
+                <span className="text-[10px] md:text-xs font-black uppercase text-emerald-300">🎫 Créditos:</span>
                 <div className="flex items-center bg-slate-900 rounded-lg border border-emerald-500/60 px-1">
                   <button onClick={() => setManualCredit(Math.max(0, Math.floor(stats.credit) - 1))} className="px-2 py-0.5 text-emerald-400 hover:text-white font-black text-sm">-</button>
                   <input
@@ -1546,7 +1733,7 @@
               </div>
 
               <div className="flex items-center gap-1 text-[11px] bg-slate-900/80 px-2 py-1 rounded-lg border border-slate-700" title="Obligatorios entre semana (L-V) y libres (S-D)">
-                <span className="text-slate-400 font-bold">Oblig. L-V:</span>
+                <span className="text-slate-400 font-bold">L-V:</span>
                 <input
                   type="number"
                   min="0"
@@ -1555,14 +1742,28 @@
                   onChange={e => setManualObligLV(e.target.value === '' ? null : parseInt(e.target.value, 10))}
                   className="w-8 text-center bg-slate-800 rounded font-black text-orange-300 text-xs outline-none border border-slate-600"
                 />
-                <span className="text-slate-400 font-bold ml-1">S-D:</span>
+                <span className="text-slate-400 font-bold ml-1">Libres:</span>
                 <span className="font-black text-green-400">{Math.floor(stats.freeSD)}</span>
               </div>
 
               <button
+                onClick={() => setShowCalc2026Modal(true)}
+                className="px-2.5 py-1 rounded-lg font-black text-xs bg-emerald-700 hover:bg-emerald-600 text-white border border-emerald-500 flex items-center gap-1 transition-all"
+                title="Calcular créditos metiendo tus días trabajados en 2026 o según Opción A (202 jornadas)">
+                🧮 Calcular 2026/27
+              </button>
+
+              <button
+                onClick={() => setShowPersonalBridges(b => !b)}
+                className={`px-2 py-1 rounded-lg font-black text-xs flex items-center gap-1 transition-all ${showPersonalBridges ? 'bg-teal-600 text-white border border-teal-400' : 'bg-slate-700 text-slate-300'}`}
+                title="Resaltar tus Puentes Personales de 4 días (J+V antes o L+M después de tu finde libre)">
+                🌉 Puentes Pers. ({personalBridgeDays.size})
+              </button>
+
+              <button
                 onClick={() => setShowRadar(r => !r)}
                 className={`px-2.5 py-1 rounded-lg font-black text-xs flex items-center gap-1 transition-all ${showRadar ? 'bg-amber-500 text-slate-900' : 'bg-slate-700 text-slate-200 hover:bg-slate-600'}`}>
-                📌 {showRadar ? 'Ocultar Festivos' : 'Ver Festivos Clave'}
+                📌 {showRadar ? 'Ocultar Festivos' : 'Festivos'}
               </button>
             </div>
 
@@ -1594,7 +1795,7 @@
               <div className="bg-white p-3 md:p-4 rounded-xl border border-slate-200 shadow-sm">
                 <div className="flex items-center justify-between mb-2">
                   <h3 className="font-black text-slate-800 uppercase text-xs flex items-center gap-2">
-                    <Settings size={14}/> 1. Turno de Petición
+                    <Settings size={14}/> 1. Turno de Petición (Opción A)
                   </h3>
                   <div className="flex bg-slate-100 rounded-lg p-0.5 border border-slate-200 shadow-inner">
                     <button onClick={() => setShiftPhase('manana')} className={`px-2 py-0.5 rounded text-[10px] md:text-xs font-bold transition-all ${shiftPhase === 'manana' ? 'bg-white shadow text-blue-700' : 'text-slate-500 hover:text-slate-700'}`}>Mañana</button>
@@ -1603,10 +1804,50 @@
                 </div>
                 
                 <input type="range" min="1" max={optPositions} value={currentTurn}
-                       onChange={e=>setTurn(parseInt(e.target.value))} className="w-full accent-blue-600 h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer" />
+                       onChange={e=>{
+                         const newT = parseInt(e.target.value);
+                         setTurn(newT);
+                         if (selectedYear === 2027) setInitialTurn2027(newT);
+                       }} className="w-full accent-blue-600 h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer" />
                 <p className="text-center font-bold text-sm mt-2 text-blue-700">
-                  {shiftPhase === 'manana' ? '🌅' : '🌇'} Turno {currentTurn} de {optPositions}
+                  {shiftPhase === 'manana' ? '🌅' : '🌇'} Turno {currentTurn} de {optPositions} ({selectedYear})
                 </p>
+
+                {/* Rotación a 13 años desde el sorteo único de 2027 */}
+                <div className="mt-2.5 pt-2.5 border-t border-slate-100 bg-slate-50 p-2 rounded-lg">
+                  <div className="flex items-center justify-between text-[10px] font-bold text-slate-600 mb-1.5">
+                    <span>🎲 Sorteo Inicial 2027:</span>
+                    <select
+                      value={initialTurn2027}
+                      onChange={e => {
+                        const t27 = parseInt(e.target.value, 10);
+                        setInitialTurn2027(t27);
+                        if (autoRotateTurn && selectedYear >= 2027) {
+                          setTurn(getRotatedTurnForYear(t27, selectedYear));
+                        }
+                      }}
+                      className="bg-white border border-slate-300 rounded px-1.5 py-0.5 font-black text-blue-800 text-[11px]">
+                      {Array.from({length: 13}, (_, i) => i + 1).map(n => (
+                        <option key={n} value={n}>Turno {n} en 2027</option>
+                      ))}
+                    </select>
+                  </div>
+                  <label className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 cursor-pointer mb-1.5">
+                    <input type="checkbox" checked={autoRotateTurn} onChange={e => setAutoRotateTurn(e.target.checked)} className="accent-blue-600 w-3 h-3" />
+                    Rotar turno automáticamente cada año (ciclo 13 años)
+                  </label>
+                  <div className="flex gap-1 overflow-x-auto pb-0.5">
+                    {[2027,2028,2029,2030,2031].map(yr => {
+                      const rotT = getRotatedTurnForYear(initialTurn2027, yr);
+                      return (
+                        <button key={yr} onClick={() => handleYearChange(yr)}
+                          className={`flex-1 text-center py-0.5 px-1 rounded text-[9px] font-black border transition-all ${selectedYear === yr ? 'bg-blue-600 text-white border-blue-700' : 'bg-white text-slate-600 border-slate-200 hover:bg-blue-50'}`}>
+                          {yr.toString().slice(2)}: T{rotT}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
               </div>
 
               <div className="bg-red-50 p-3 md:p-4 rounded-xl border-2 border-red-200 shadow-sm transition-all space-y-3">
@@ -2013,6 +2254,7 @@
               <div className="flex items-center gap-1"><div className="w-2.5 h-2.5 rounded bg-yellow-300" />VAC (Vacaciones)</div>
               <div className="flex items-center gap-1"><div className="w-2.5 h-2.5 rounded bg-green-500" />PED (Pedido)</div>
               <div className="flex items-center gap-1"><div className="w-2.5 h-2.5 rounded bg-cyan-500" />🎒 No Lectivo (Cole)</div>
+              <div className="flex items-center gap-1"><div className="w-2.5 h-2.5 rounded bg-teal-600" />🌉 Puente Personal (4d con tu finde LIB)</div>
               <div className="flex items-center gap-1"><div className="w-2.5 h-2.5 rounded bg-purple-600" />🤝 Convivencia</div>
               <div className="flex items-center gap-1"><div className="w-2.5 h-2.5 rounded bg-yellow-100 border-2 border-dashed border-yellow-500" />Pl. A</div>
               <div className="flex items-center gap-1"><div className="w-2.5 h-2.5 rounded bg-orange-100 border-2 border-dashed border-orange-500" />Pl. B</div>
