@@ -146,123 +146,148 @@
         function App() {
           const [selectedYear,    setSelectedYear]  = useState(() => loadVal('pln_year', 2027));
           const [turn,            setTurn]          = useState(() => loadVal('pln_turn', 1));
-          const [restGroup,       setRestGroup]     = useState(() => loadVal('pln_restGroup', 2));
-          const [groupLastYear,   setGroupLastYear] = useState(() => loadVal('pln_groupLastYear', 3));
-  const [subGroup5,       setSubGroup5]     = useState(() => loadVal('pln_subGroup5', 'S51'));
-  const [winVac,          setWinVac]        = useState(() => loadVal('pln_winVac', 'W11'));
-  const [requestedDays,   setRequestedDays] = useState(() => loadSet('pln_req'));
+          const [restGroup,       setRestGroup]     = useState(() => loadVal('pln_rg', loadVal('pln_restGroup', 2)));
+          const [patternShift,    setPatternShift]  = useState(() => loadVal('pln_pshift', 0));
+          const [useCustomOff,    setUseCustomOff]  = useState(() => loadVal('pln_useCustomOff', false));
+          const [customOffDays,   setCustomOffDays] = useState(() => loadSet('pln_customOff'));
+          const [janSyncDays,     setJanSyncDays]   = useState(new Set());
+          const [manualCredit,    setManualCredit]  = useState(() => loadVal('pln_mcred', 9));
+          const [manualObligLV,   setManualObligLV] = useState(() => loadVal('pln_mlv', null));
+          const [nonSchoolDays,   setNonSchoolDays] = useState(() => loadSet('pln_noschool'));
+          const [customConvDays,  setCustomConvDays]= useState(() => loadSet('pln_conv_days'));
+          const [showRadar,       setShowRadar]     = useState(() => loadVal('pln_radar', true));
+
+          const [groupLastYear,   setGroupLastYear] = useState(() => loadVal('pln_gly', loadVal('pln_groupLastYear', 3)));
+          const [subGroup5,       setSubGroup5]     = useState(() => loadVal('pln_sg5', loadVal('pln_subGroup5', 'S51')));
+          const [winVac,          setWinVac]        = useState(() => loadVal('pln_wv', loadVal('pln_winVac', 'W11')));
+          const [requestedDays,   setRequestedDays] = useState(() => loadSet('pln_req'));
   
-  const [showConfig,      setShowConfig]    = useState(false);
-  const [clickMode,       setClickMode]     = useState('pedir'); // pedir | plan_a | plan_b | plan_c | vacaciones | agotar
-  const [shiftPhase,      setShiftPhase]    = useState(() => loadVal('pln_shift', 'manana')); // manana | tarde
+          const [showConfig,      setShowConfig]    = useState(false);
+          const [clickMode,       setClickMode]     = useState('pedir'); // pedir | plan_a | plan_b | plan_c | vacaciones | agotar | no_lectivo | convivencia | editar_lib | sync_enero
+          const [shiftPhase,      setShiftPhase]    = useState(() => loadVal('pln_shift', 'manana')); // manana | tarde
   
-  const [customVacationDays, setCustomVacationDays] = useState(new Set());
-  const [planA,           setPlanA]         = useState(() => loadSet('pln_planA'));
-  const [planB,           setPlanB]         = useState(() => loadSet('pln_planB'));
-  const [planC,           setPlanC]         = useState(() => loadSet('pln_planC'));
-  const [exhaustedDays,   setExhaustedDays] = useState(() => loadSet('pln_exhausted'));
-  const [errorMsg,        setErrorMsg]      = useState('');
-  const [msgType,         setMsgType]       = useState('error'); // error | success | info
+          const [customVacationDays, setCustomVacationDays] = useState(new Set());
+          const [planA,           setPlanA]         = useState(() => loadSet('pln_planA'));
+          const [planB,           setPlanB]         = useState(() => loadSet('pln_planB'));
+          const [planC,           setPlanC]         = useState(() => loadSet('pln_planC'));
+          const [exhaustedDays,   setExhaustedDays] = useState(() => loadSet('pln_exhausted'));
+          const [errorMsg,        setErrorMsg]      = useState('');
+          const [msgType,         setMsgType]       = useState('error'); // error | success | info
 
-  const [appDay,          setAppDay]        = useState(() => loadVal('pln_appDay', 22));
-  const [appTime,         setAppTime]       = useState(() => loadVal('pln_appTime', '10:00'));
-  const [simMode,         setSimMode]       = useState('real');
-  const [simOffset,       setSimOffset]     = useState(0);
-  const [maqPerTurn,      setMaqPerTurn]    = useState(() => loadVal('pln_mpt', 160));
-  const [manualMaqAhead,  setManualMaqAhead] = useState(() => loadVal('pln_mma', null));
-  const [calcByApp,       setCalcByApp]      = useState(() => loadVal('pln_cba', false));
-  const [appInterval,     setAppInterval]    = useState(() => loadVal('pln_api', 10));
-  const [shiftStart,      setShiftStart]     = useState(() => loadVal('pln_ss', '10:00'));
-  const [maqPerSlot,      setMaqPerSlot]     = useState(() => loadVal('pln_mps', 1));
-  const [shiftHours,      setShiftHours]     = useState(() => loadVal('pln_sh', 5));
-  const [calcRateByDur,   setCalcRateByDur]  = useState(() => loadVal('pln_cbd', true));
-  const [now,             setNow]           = useState(new Date());
+          const [appDay,          setAppDay]        = useState(() => loadVal('pln_ad', loadVal('pln_appDay', 22)));
+          const [appTime,         setAppTime]       = useState(() => loadVal('pln_at', loadVal('pln_appTime', '10:00')));
+          const [simMode,         setSimMode]       = useState('real');
+          const [simOffset,       setSimOffset]     = useState(0);
+          const [maqPerTurn,      setMaqPerTurn]    = useState(() => loadVal('pln_mpt', 160));
+          const [manualMaqAhead,  setManualMaqAhead] = useState(() => loadVal('pln_mma', null));
+          const [calcByApp,       setCalcByApp]      = useState(() => loadVal('pln_cba', false));
+          const [appInterval,     setAppInterval]    = useState(() => loadVal('pln_api', 10));
+          const [shiftStart,      setShiftStart]     = useState(() => loadVal('pln_ss', '10:00'));
+          const [maqPerSlot,      setMaqPerSlot]     = useState(() => loadVal('pln_mps', 1));
+          const [shiftHours,      setShiftHours]     = useState(() => loadVal('pln_sh', 5));
+          const [calcRateByDur,   setCalcRateByDur]  = useState(() => loadVal('pln_cbd', true));
+          const [now,             setNow]           = useState(new Date());
 
-  useEffect(() => {
-    const timer = setInterval(() => setNow(new Date()), 1000);
-    return () => clearInterval(timer);
-  }, []);
+          useEffect(() => {
+            const timer = setInterval(() => setNow(new Date()), 1000);
+            return () => clearInterval(timer);
+          }, []);
 
-  const [tooltip,      setTooltip]      = useState(null);
-  const [lastClickKey, setLastClickKey] = useState(null);
-  const [mobileMonth,  setMobileMonth]  = useState(new Date().getMonth() + 1);
-  const [darkMode,     setDarkMode]     = useState(() => loadVal('pln_dark', false));
-  const [notes,        setNotes]        = useState(() => loadVal('pln_notes', {}));
-  const [noteModal,    setNoteModal]    = useState(null);
-  const [history,      setHistory]      = useState([]);
+          const [tooltip,      setTooltip]      = useState(null);
+          const [lastClickKey, setLastClickKey] = useState(null);
+          const [mobileMonth,  setMobileMonth]  = useState(new Date().getMonth() + 1);
+          const [darkMode,     setDarkMode]     = useState(() => loadVal('pln_dark', false));
+          const [notes,        setNotes]        = useState(() => loadVal('pln_notes', {}));
+          const [noteModal,    setNoteModal]    = useState(null);
+          const [history,      setHistory]      = useState([]);
 
-  useEffect(() => saveSet('pln_req',       requestedDays), [requestedDays]);
-  useEffect(() => saveSet('pln_planA',     planA),         [planA]);
-  useEffect(() => saveSet('pln_planB',     planB),         [planB]);
-  useEffect(() => saveSet('pln_planC',     planC),         [planC]);
-  useEffect(() => saveSet('pln_exhausted', exhaustedDays), [exhaustedDays]);
-  useEffect(() => localStorage.setItem('pln_year',  JSON.stringify(selectedYear)), [selectedYear]);
-  useEffect(() => localStorage.setItem('pln_turn',  JSON.stringify(turn)),         [turn]);
-  useEffect(() => localStorage.setItem('pln_rg',    JSON.stringify(restGroup)),    [restGroup]);
-  useEffect(() => localStorage.setItem('pln_gly',   JSON.stringify(groupLastYear)),[groupLastYear]);
-  useEffect(() => localStorage.setItem('pln_sg5',   JSON.stringify(subGroup5)),    [subGroup5]);
-  useEffect(() => localStorage.setItem('pln_wv',    JSON.stringify(winVac)),       [winVac]);
-  useEffect(() => localStorage.setItem('pln_ad',    JSON.stringify(appDay)),       [appDay]);
-  useEffect(() => localStorage.setItem('pln_at',    JSON.stringify(appTime)),      [appTime]);
-  useEffect(() => localStorage.setItem('pln_shift', JSON.stringify(shiftPhase)),   [shiftPhase]);
-  useEffect(() => localStorage.setItem('pln_dark',  JSON.stringify(darkMode)),     [darkMode]);
-  useEffect(() => localStorage.setItem('pln_notes', JSON.stringify(notes)),        [notes]);
-  useEffect(() => localStorage.setItem('pln_mpt',   JSON.stringify(maqPerTurn)),   [maqPerTurn]);
-  useEffect(() => localStorage.setItem('pln_mma',   JSON.stringify(manualMaqAhead)),[manualMaqAhead]);
-  useEffect(() => localStorage.setItem('pln_cba',   JSON.stringify(calcByApp)),    [calcByApp]);
-  useEffect(() => localStorage.setItem('pln_api',   JSON.stringify(appInterval)),  [appInterval]);
-  useEffect(() => localStorage.setItem('pln_ss',    JSON.stringify(shiftStart)),   [shiftStart]);
-  useEffect(() => localStorage.setItem('pln_mps',   JSON.stringify(maqPerSlot)),   [maqPerSlot]);
-  useEffect(() => localStorage.setItem('pln_sh',    JSON.stringify(shiftHours)),   [shiftHours]);
-  useEffect(() => localStorage.setItem('pln_cbd',   JSON.stringify(calcRateByDur)), [calcRateByDur]);
+          useEffect(() => saveSet('pln_req',       requestedDays), [requestedDays]);
+          useEffect(() => saveSet('pln_planA',     planA),         [planA]);
+          useEffect(() => saveSet('pln_planB',     planB),         [planB]);
+          useEffect(() => saveSet('pln_planC',     planC),         [planC]);
+          useEffect(() => saveSet('pln_exhausted', exhaustedDays), [exhaustedDays]);
+          useEffect(() => saveSet('pln_customOff', customOffDays), [customOffDays]);
+          useEffect(() => saveSet('pln_noschool',  nonSchoolDays), [nonSchoolDays]);
+          useEffect(() => saveSet('pln_conv_days', customConvDays),[customConvDays]);
+          useEffect(() => localStorage.setItem('pln_year',  JSON.stringify(selectedYear)), [selectedYear]);
+          useEffect(() => localStorage.setItem('pln_turn',  JSON.stringify(turn)),         [turn]);
+          useEffect(() => localStorage.setItem('pln_rg',    JSON.stringify(restGroup)),    [restGroup]);
+          useEffect(() => localStorage.setItem('pln_pshift',JSON.stringify(patternShift)), [patternShift]);
+          useEffect(() => localStorage.setItem('pln_useCustomOff', JSON.stringify(useCustomOff)), [useCustomOff]);
+          useEffect(() => localStorage.setItem('pln_mcred', JSON.stringify(manualCredit)), [manualCredit]);
+          useEffect(() => localStorage.setItem('pln_mlv',   JSON.stringify(manualObligLV)),[manualObligLV]);
+          useEffect(() => localStorage.setItem('pln_radar', JSON.stringify(showRadar)),    [showRadar]);
+          useEffect(() => localStorage.setItem('pln_gly',   JSON.stringify(groupLastYear)),[groupLastYear]);
+          useEffect(() => localStorage.setItem('pln_sg5',   JSON.stringify(subGroup5)),    [subGroup5]);
+          useEffect(() => localStorage.setItem('pln_wv',    JSON.stringify(winVac)),       [winVac]);
+          useEffect(() => localStorage.setItem('pln_ad',    JSON.stringify(appDay)),       [appDay]);
+          useEffect(() => localStorage.setItem('pln_at',    JSON.stringify(appTime)),      [appTime]);
+          useEffect(() => localStorage.setItem('pln_shift', JSON.stringify(shiftPhase)),   [shiftPhase]);
+          useEffect(() => localStorage.setItem('pln_dark',  JSON.stringify(darkMode)),     [darkMode]);
+          useEffect(() => localStorage.setItem('pln_notes', JSON.stringify(notes)),        [notes]);
+          useEffect(() => localStorage.setItem('pln_mpt',   JSON.stringify(maqPerTurn)),   [maqPerTurn]);
+          useEffect(() => localStorage.setItem('pln_mma',   JSON.stringify(manualMaqAhead)),[manualMaqAhead]);
+          useEffect(() => localStorage.setItem('pln_cba',   JSON.stringify(calcByApp)),    [calcByApp]);
+          useEffect(() => localStorage.setItem('pln_api',   JSON.stringify(appInterval)),  [appInterval]);
+          useEffect(() => localStorage.setItem('pln_ss',    JSON.stringify(shiftStart)),   [shiftStart]);
+          useEffect(() => localStorage.setItem('pln_mps',   JSON.stringify(maqPerSlot)),   [maqPerSlot]);
+          useEffect(() => localStorage.setItem('pln_sh',    JSON.stringify(shiftHours)),   [shiftHours]);
+          useEffect(() => localStorage.setItem('pln_cbd',   JSON.stringify(calcRateByDur)), [calcRateByDur]);
 
-  // --- Share/Load Logic ---
-  const applyState = (decoded) => {
-    if (!decoded) return false;
-    if (decoded.yr) setSelectedYear(decoded.yr);
-    if (decoded.t)  setTurn(decoded.t);
-    if (decoded.rg) setRestGroup(decoded.rg);
-    if (decoded.gly) setGroupLastYear(decoded.gly);
-    if (decoded.sg5) setSubGroup5(decoded.sg5);
-    if (decoded.wv)  setWinVac(decoded.wv);
-    if (decoded.sp)  setShiftPhase(decoded.sp);
-    if (decoded.ad)  setAppDay(decoded.ad);
-    if (decoded.at)  setAppTime(decoded.at);
-    if (decoded.mpt) setMaqPerTurn(decoded.mpt);
-    if (decoded.mma !== undefined) setManualMaqAhead(decoded.mma);
-    if (decoded.cba !== undefined) setCalcByApp(decoded.cba);
-    if (decoded.api) setAppInterval(decoded.api);
-    if (decoded.ss)  setShiftStart(decoded.ss);
-    if (decoded.mps) setMaqPerSlot(decoded.mps);
-    if (decoded.sh)  setShiftHours(decoded.sh);
-    if (decoded.cbd !== undefined) setCalcRateByDur(decoded.cbd);
-    
-    if (decoded.req) setRequestedDays(new Set(decoded.req));
-    if (decoded.pa)  setPlanA(new Set(decoded.pa));
-    if (decoded.pb)  setPlanB(new Set(decoded.pb));
-    if (decoded.pc)  setPlanC(new Set(decoded.pc));
-    if (decoded.ex)  setExhaustedDays(new Set(decoded.ex));
-    if (decoded.nt)  setNotes(decoded.nt || {});
-    return true;
-  };
+          // --- Share/Load Logic ---
+          const applyState = (decoded) => {
+            if (!decoded) return false;
+            if (decoded.yr) setSelectedYear(decoded.yr);
+            if (decoded.t)  setTurn(decoded.t);
+            if (decoded.rg) setRestGroup(decoded.rg);
+            if (decoded.ps !== undefined) setPatternShift(decoded.ps);
+            if (decoded.uco !== undefined) setUseCustomOff(decoded.uco);
+            if (decoded.co) setCustomOffDays(new Set(decoded.co));
+            if (decoded.mc !== undefined) setManualCredit(decoded.mc);
+            if (decoded.mlv !== undefined) setManualObligLV(decoded.mlv);
+            if (decoded.ns) setNonSchoolDays(new Set(decoded.ns));
+            if (decoded.cc) setCustomConvDays(new Set(decoded.cc));
+            if (decoded.gly) setGroupLastYear(decoded.gly);
+            if (decoded.sg5) setSubGroup5(decoded.sg5);
+            if (decoded.wv)  setWinVac(decoded.wv);
+            if (decoded.sp)  setShiftPhase(decoded.sp);
+            if (decoded.ad)  setAppDay(decoded.ad);
+            if (decoded.at)  setAppTime(decoded.at);
+            if (decoded.mpt) setMaqPerTurn(decoded.mpt);
+            if (decoded.mma !== undefined) setManualMaqAhead(decoded.mma);
+            if (decoded.cba !== undefined) setCalcByApp(decoded.cba);
+            if (decoded.api) setAppInterval(decoded.api);
+            if (decoded.ss)  setShiftStart(decoded.ss);
+            if (decoded.mps) setMaqPerSlot(decoded.mps);
+            if (decoded.sh)  setShiftHours(decoded.sh);
+            if (decoded.cbd !== undefined) setCalcRateByDur(decoded.cbd);
+            
+            if (decoded.req) setRequestedDays(new Set(decoded.req));
+            if (decoded.pa)  setPlanA(new Set(decoded.pa));
+            if (decoded.pb)  setPlanB(new Set(decoded.pb));
+            if (decoded.pc)  setPlanC(new Set(decoded.pc));
+            if (decoded.ex)  setExhaustedDays(new Set(decoded.ex));
+            if (decoded.nt)  setNotes(decoded.nt || {});
+            return true;
+          };
 
-  useEffect(() => {
-    try {
-      const urlParams = new URLSearchParams(window.location.search);
-      const planBase64 = urlParams.get('plan') || urlParams.get('p');
-      if (planBase64) {
-        const decoded = JSON.parse(decodeURIComponent(escape(atob(planBase64))));
-        if (applyState(decoded)) {
-          notify('Plan importado correctamente desde el enlace.', 'success');
-        }
-        const newUrl = window.location.pathname;
-        window.history.replaceState({}, document.title, newUrl);
-      }
-    } catch (e) {
-      console.error("Error loading shared plan:", e);
-      showError('No se pudo cargar el plan compartido (enlace corrupto o antiguo).');
-    }
-  }, []);
+          useEffect(() => {
+            try {
+              const urlParams = new URLSearchParams(window.location.search);
+              const planBase64 = urlParams.get('plan') || urlParams.get('p');
+              if (planBase64) {
+                const decoded = JSON.parse(decodeURIComponent(escape(atob(planBase64))));
+                if (applyState(decoded)) {
+                  notify('Plan importado correctamente desde el enlace.', 'success');
+                }
+                const newUrl = window.location.pathname;
+                window.history.replaceState({}, document.title, newUrl);
+              }
+            } catch (e) {
+              console.error("Error loading shared plan:", e);
+              showError('No se pudo cargar el plan compartido (enlace corrupto o antiguo).');
+            }
+          }, []);
 
   const importConfig = () => {
     const code = window.prompt("Pega aquí el CÓDIGO de configuración compartido:");
@@ -414,18 +439,21 @@
     return hd;
   }, [selectedYear]);
 
-  // ── Convivencia de Transmisión: V+S+D del último finde de octubre ──
-  const convivenciaDays = useMemo(() => {
+  // ── Convivencia de Transmisión: V+S+D del último finde de octubre o personalizado ──
+  const defaultConvivenciaDays = useMemo(() => {
     const oct31 = new Date(selectedYear, 9, 31); // 31 de octubre
     const oct31dow = oct31.getDay(); // 0=Dom, 6=Sab
-    // Encontrar el último domingo de octubre
-    const daysToLastSun = oct31dow === 0 ? 0 : oct31dow; // retroceder hasta domenica
+    const daysToLastSun = oct31dow === 0 ? 0 : oct31dow;
     const lastSun = new Date(oct31.getTime() - daysToLastSun * 86400000);
     const lastSat = new Date(lastSun.getTime() - 86400000);
     const lastFri = new Date(lastSun.getTime() - 2 * 86400000);
     const fmtC = d => `${d.getMonth()+1}-${d.getDate()}`;
     return new Set([fmtC(lastFri), fmtC(lastSat), fmtC(lastSun)]);
   }, [selectedYear]);
+
+  const convivenciaDays = useMemo(() => {
+    return (customConvDays && customConvDays.size > 0) ? customConvDays : defaultConvivenciaDays;
+  }, [customConvDays, defaultConvivenciaDays]);
 
   // ── Añadir días de convivencia a pedidos ──
   const addConvivencia = () => {
@@ -439,12 +467,12 @@
       return !baseOffDays.has(k) && !vacationDays.has(k) && !exhaustedDays.has(k)
              && getRemainingQuota(ms, ds, isWE) > 0;
     });
-    if (!available.length) { showError('Los días de Convivencia no tienen cupo o están bloqueados.'); return; }
+    if (!available.length) { showError('Los días de Convivencia ya los libras, no tienen cupo o están bloqueados.'); return; }
     pushHistory();
     const n = new Set(requestedDays);
     available.forEach(k => n.add(k));
     setRequestedDays(n);
-    notify(`✅ ${available.length} días de Convivencia de Transmisión añadidos.`, 'success');
+    notify(`✅ ${available.length} días de Convivencia de Transmisión añadidos a tus peticiones.`, 'success');
   };
 
   const activeMaqPerSlot = useMemo(() => {
@@ -499,22 +527,124 @@
 
   const vacationDays = customVacationDays;
 
-  const baseOffDays = useMemo(() => {
+  const computePatternForShift = (rg, pShift, yr) => {
     const s = new Set();
     const anchor = new Date(2027, 0, 1).getTime();
-    const offset = (restGroup - 1) * 7;
-    
+    const offset = (rg - 1) * 7 + pShift;
     for (let m = 1; m <= 12; m++) {
-      const daysInMonth = new Date(selectedYear, m, 0).getDate();
+      const daysInMonth = new Date(yr, m, 0).getDate();
       for (let d = 1; d <= daysInMonth; d++) {
-        const current = new Date(selectedYear, m - 1, d).getTime();
+        const current = new Date(yr, m - 1, d).getTime();
         const diffInDays = Math.round((current - anchor) / 86400000);
         const pi = (diffInDays - 3 + offset + 280000) % 28;
         if (PATTERN_28_DAYS[pi]) s.add(`${m}-${d}`);
       }
     }
     return s;
-  }, [restGroup, selectedYear]);
+  };
+
+  const patternOffDays = useMemo(() => {
+    return computePatternForShift(restGroup, patternShift, selectedYear);
+  }, [restGroup, patternShift, selectedYear]);
+
+  const baseOffDays = useMemo(() => {
+    return (useCustomOff && customOffDays.size > 0) ? customOffDays : patternOffDays;
+  }, [useCustomOff, customOffDays, patternOffDays]);
+
+  const toggleJanSyncDay = (day) => {
+    const key = `1-${day}`;
+    const next = new Set(janSyncDays);
+    if (next.has(key)) next.delete(key); else next.add(key);
+    setJanSyncDays(next);
+
+    if (next.size > 0) {
+      let bestG = restGroup, bestS = patternShift, bestScore = -999;
+      for (let g = 1; g <= 4; g++) {
+        for (let sh = -6; sh <= 6; sh++) {
+          const pat = computePatternForShift(g, sh, selectedYear);
+          let hits = 0;
+          next.forEach(k => { if (pat.has(k)) hits++; });
+          const score = hits * 100 - Math.abs(sh);
+          if (score > bestScore) {
+            bestScore = score;
+            bestG = g;
+            bestS = sh;
+          }
+        }
+      }
+      setUseCustomOff(false);
+      setRestGroup(bestG);
+      setPatternShift(bestS);
+      notify(`🎯 Secuencia sincronizada con tus ${next.size} día(s) de Enero (Grupo ${bestG}${bestS!==0 ? (bestS>0?` +${bestS}d`:` ${bestS}d`) : ''}).`, 'success');
+    }
+  };
+
+  const handleICSUpload = (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const text = ev.target.result || '';
+        const events = text.split('BEGIN:VEVENT').slice(1);
+        const allFoundDates = new Set();
+        const libDates = new Set();
+        const vacDates = new Set();
+
+        const parseICSDate = (str) => {
+          const m = str.match(/(\d{4})(\d{2})(\d{2})/);
+          if (!m) return null;
+          return new Date(parseInt(m[1],10), parseInt(m[2],10)-1, parseInt(m[3],10));
+        };
+
+        events.forEach(block => {
+          const dtStartMatch = block.match(/DTSTART[^:]*:([^\r\n]+)/i);
+          const dtEndMatch   = block.match(/DTEND[^:]*:([^\r\n]+)/i);
+          const sumMatch     = block.match(/SUMMARY[^:]*:([^\r\n]+)/i);
+          if (!dtStartMatch) return;
+
+          const startD = parseICSDate(dtStartMatch[1]);
+          if (!startD) return;
+          let endD = dtEndMatch ? parseICSDate(dtEndMatch[1]) : new Date(startD);
+          const isDateOnly = dtStartMatch[0].toUpperCase().includes('VALUE=DATE') || !dtStartMatch[1].includes('T');
+          if (endD && isDateOnly && endD > startD) {
+            endD = new Date(endD.getTime() - 86400000);
+          }
+          if (!endD || endD < startD) endD = new Date(startD);
+
+          const summary = (sumMatch ? sumMatch[1] : '').toUpperCase();
+          const isVacEvent = /VAC|VERANO|INVIERNO/.test(summary);
+          const isLibEvent = /LIB|DESC|FRANCO|FIESTA|D\b|DESCANSO/.test(summary);
+
+          for (let cur = new Date(startD); cur <= endD; cur = new Date(cur.getTime() + 86400000)) {
+            if (cur.getFullYear() === selectedYear) {
+              const k = `${cur.getMonth()+1}-${cur.getDate()}`;
+              allFoundDates.add(k);
+              if (isVacEvent) vacDates.add(k);
+              if (isLibEvent) libDates.add(k);
+            }
+          }
+        });
+
+        const finalOff = libDates.size > 0 ? libDates : allFoundDates;
+        if (finalOff.size === 0) {
+          showError(`No se encontraron eventos para el año ${selectedYear} en este archivo .ics.`);
+          return;
+        }
+        setCustomOffDays(finalOff);
+        setUseCustomOff(true);
+        if (vacDates.size > 0) {
+          setCustomVacationDays(vacDates);
+        }
+        notify(`✅ Archivo .ics cargado: ${finalOff.size} días de descanso importados para ${selectedYear}.`, 'success');
+      } catch (err) {
+        console.error(err);
+        showError('Error al leer el archivo .ics');
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  };
 
   const stats = useMemo(() => {
     let workedDaysGross = 0, offDaysCount = 0, vacDaysCount = 0;
@@ -526,13 +656,14 @@
         else workedDaysGross++;
       }
     });
-    const grossCredit  = Math.max(0, workedDaysGross - 202);
+    const autoCredit   = Math.max(0, workedDaysGross - 202);
+    const grossCredit  = manualCredit !== null && manualCredit !== '' ? Math.max(0, Number(manualCredit)) : autoCredit;
     const creditNeto   = grossCredit;
-    const obligatoryLV = Math.min(grossCredit, 7);
-    const freeSD       = Math.max(0, grossCredit - 7);
-    return { workedDays: workedDaysGross, offDaysCount, vacDaysCount,
+    const obligatoryLV = manualObligLV !== null && manualObligLV !== '' ? Math.min(grossCredit, Math.max(0, Number(manualObligLV))) : Math.min(grossCredit, 7);
+    const freeSD       = Math.max(0, grossCredit - obligatoryLV);
+    return { workedDays: workedDaysGross, offDaysCount, vacDaysCount, autoCredit,
              grossCredit, credit: creditNeto, obligatoryLV, freeSD };
-  }, [baseOffDays, vacationDays, dynamicMonths]);
+  }, [baseOffDays, vacationDays, dynamicMonths, manualCredit, manualObligLV]);
 
   const reqStats = useMemo(() => {
     let usedLV = 0, usedSD = 0;
@@ -547,9 +678,76 @@
   }, [requestedDays, dynamicMonths]);
 
   const DOW_NAMES = ['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'];
-  const HOLIDAY_NAMES = {'1-1':'Año Nuevo','1-6':'Reyes','5-1':'Trabajo','5-2':'C.Madrid',
-    '8-15':'Asunción','10-12':'Hispanidad','11-1':'T.Santos','11-9':'Almudena',
-    '12-6':'Constitución','12-8':'Inmaculada','12-25':'Navidad'};
+  const HOLIDAY_NAMES = useMemo(() => {
+    const map = {
+      '1-1':'Año Nuevo', '1-6':'Reyes', '5-1':'1 Mayo', '5-2':'C.Madrid',
+      '8-15':'15 Agosto', '10-12':'Pilar', '11-1':'T.Santos', '11-9':'Almudena',
+      '12-6':'Constitución', '12-8':'Inmaculada', '12-24':'Nochebuena',
+      '12-25':'Navidad', '12-31':'Nochevieja'
+    };
+    const easter = getEasterSunday(selectedYear);
+    const addD = (d, n) => new Date(d.getTime() + n * 86400000);
+    const fk = d => `${d.getMonth()+1}-${d.getDate()}`;
+    map[fk(addD(easter, -3))] = 'J. Santo';
+    map[fk(addD(easter, -2))] = 'V. Santo';
+    map[fk(easter)]           = 'D. Pascua';
+    map[fk(addD(easter, 1))]  = 'L. Pascua';
+    return map;
+  }, [selectedYear]);
+
+  const keyMilestones = useMemo(() => {
+    const easter = getEasterSunday(selectedYear);
+    const addD = (d, n) => new Date(d.getTime() + n * 86400000);
+    const fk = d => `${d.getMonth()+1}-${d.getDate()}`;
+    const jSanto = fk(addD(easter, -3));
+    const vSanto = fk(addD(easter, -2));
+    const dPascua = fk(easter);
+    const lPascua = fk(addD(easter, 1));
+    const convArr = Array.from(convivenciaDays).sort((a,b) => {
+      const [ma,da] = a.split('-').map(Number);
+      const [mb,db] = b.split('-').map(Number);
+      return ma !== mb ? ma - mb : da - db;
+    });
+
+    const items = [
+      { id: 'ene1_6', title: 'Año Nuevo y Reyes', icon: '👑', keys: ['1-1', '1-6'] },
+      { id: 'ssanta', title: 'Semana Santa', icon: '🕊️', keys: [jSanto, vSanto, dPascua, lPascua] },
+      { id: 'mayo', title: 'Puente de Mayo', icon: '🌺', keys: ['5-1', '5-2'] },
+      { id: 'ago15', title: '15 de Agosto', icon: '☀️', keys: ['8-15'] },
+      { id: 'oct_nov', title: 'Pilar / T. Santos', icon: '🍂', keys: ['10-12', '11-1'] },
+      { id: 'conv', title: 'Convivencia Transm.', icon: '🤝', keys: convArr, editable: true },
+      { id: 'const', title: 'Puente Constitución', icon: '🏛️', keys: ['12-6', '12-7', '12-8'] },
+      { id: 'nav', title: 'Navidad y Fin de Año', icon: '🎄', keys: ['12-24', '12-25', '12-31'] }
+    ];
+
+    const shortDow = ['L','M','X','J','V','S','D'];
+    const shortM = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+
+    return items.map(item => {
+      const dayDetails = item.keys.map(k => {
+        const [m, d] = k.split('-').map(Number);
+        const mObj = dynamicMonths.find(x => x.id === m);
+        const dowIdx = mObj ? (mObj.startDay + d - 1) % 7 : 0;
+        const isOff = baseOffDays.has(k);
+        const isVac = vacationDays.has(k);
+        const isReq = requestedDays.has(k);
+        const isPlan = planA.has(k) || planB.has(k) || planC.has(k);
+        let status = 'TRABAJAS';
+        if (isVac) status = 'VAC';
+        else if (isOff) status = 'LIB';
+        else if (isReq) status = 'PEDIDO';
+        else if (isPlan) status = 'PLAN';
+        return {
+          key: k, m, d,
+          label: `${shortDow[dowIdx]} ${d} ${shortM[m-1]}`,
+          status
+        };
+      });
+      const allFree = dayDetails.length > 0 && dayDetails.every(x => x.status === 'LIB' || x.status === 'VAC' || x.status === 'PEDIDO');
+      const someFree = dayDetails.some(x => x.status === 'LIB' || x.status === 'VAC' || x.status === 'PEDIDO');
+      return { ...item, dayDetails, allFree, someFree };
+    });
+  }, [selectedYear, convivenciaDays, dynamicMonths, baseOffDays, vacationDays, requestedDays, planA, planB, planC]);
 
   const monthReqCount = useMemo(() => {
     const s = {}; dynamicMonths.forEach(m => { s[m.id] = 0; });
@@ -639,20 +837,12 @@
     // Festivos nacionales fijos
     const nationalHolidays = new Set(['1-1','1-6','5-1','5-2','8-15','10-12','11-1','11-9','12-6','12-8','12-25']);
 
-    // Scorecard: número MENOR = mejor prioridad
-    // ─────────────────────────────────────────────────────────────
-    // PRIORIDAD 1:  Días entre semana jul/ago (sin vacaciones)
-    // PRIORIDAD 2:  Fines de semana jul/ago  (sin vacaciones)
-    // PRIORIDAD 3a: Días no lectivos entre semana de junio / finde de junio
-    // PRIORIDAD 3b: Dom. Ramos, Dom. Pascua, Dom. Pentecostés
-    // PRIORIDAD 4:  Días no lectivos / festivos del año (resto)
-    // PRIORIDAD 5:  Fines de semana de todo el año (resto)
-    // PRIORIDAD 6:  Entre semana de Oct / Nov / Dic (último recurso)
-    // PRIORIDAD 99: Cualquier otro día (muy última opción)
-    // ─────────────────────────────────────────────────────────────
     const scoreDay = (m, d, isWE) => {
       const k = `${m}-${d}`;
       const isVac = vacationDays.has(k);
+
+      // ── Días marcados manualmente como No Lectivos tienen máxima prioridad tras verano ──
+      if (nonSchoolDays.has(k) && !isVac) return 25;
 
       // ── Julio y Agosto (solo si no están en vacaciones) ──
       if ((m===7||m===8) && !isVac) {
@@ -661,7 +851,7 @@
 
       // ── Junio ──
       if (m===6 && !isVac) {
-        const isNoLectivo = highDemandDays.has(k) || nationalHolidays.has(k);
+        const isNoLectivo = highDemandDays.has(k) || nationalHolidays.has(k) || nonSchoolDays.has(k);
         if (!isWE && isNoLectivo) return 30;  // P3a entre semana no lectivo junio
         if (isWE)                 return 40;  // P3a finde de junio
         if (!isWE)                return 45;  // Junio entre semana normal (algo peor)
@@ -673,7 +863,7 @@
       // ── Días no lectivos / festivos del año (resto de meses) ──
       if (nationalHolidays.has(k) || highDemandDays.has(k)) return 50;
 
-      // ── Convivencia de Transmisión (V+S+D último finde octubre) ──
+      // ── Convivencia de Transmisión ──
       if (convivenciaDays.has(k)) return 55;
 
       // ── Fines de semana del resto del año ──
@@ -759,7 +949,11 @@
   // ── Share URL ──
   const shareURL = () => {
     const state = {
-      yr: selectedYear, t: turn, rg: restGroup, gly: groupLastYear, sg5: subGroup5,
+      yr: selectedYear, t: turn, rg: restGroup, ps: patternShift,
+      uco: useCustomOff, co: [...customOffDays],
+      mc: manualCredit, mlv: manualObligLV,
+      ns: [...nonSchoolDays], cc: [...customConvDays],
+      gly: groupLastYear, sg5: subGroup5,
       wv: winVac, sp: shiftPhase, ad: appDay, at: appTime,
       mpt: maqPerTurn, mma: manualMaqAhead,
       cba: calcByApp, api: appInterval, ss: shiftStart,
@@ -858,7 +1052,6 @@
     if (planB.has(dateKey)) { const b = new Set(planB); b.delete(dateKey); setPlanB(b); }
     if (planC.has(dateKey)) { const c = new Set(planC); c.delete(dateKey); setPlanC(c); }
     
-    // Si estaba en el mismo plan, ya lo hemos borrado actuando como Toggle. Si estaba en otro, lo añadimos al nuevo.
     let isTogglingOff = false;
     if (planType === 'plan_a' && planA.has(dateKey)) isTogglingOff = true;
     if (planType === 'plan_b' && planB.has(dateKey)) isTogglingOff = true;
@@ -873,6 +1066,38 @@
 
   const handleDayClick = (monthId, day, isWeekend, e) => {
     const dateKey = `${monthId}-${day}`;
+
+    if (clickMode === 'sync_enero') {
+      if (monthId !== 1) {
+        showError('En el modo "🎯 Marcar Enero", haz clic en los días de ENERO que libras para detectar tu secuencia.');
+        return;
+      }
+      toggleJanSyncDay(day);
+      return;
+    }
+
+    if (clickMode === 'editar_lib') {
+      const next = new Set(baseOffDays);
+      if (next.has(dateKey)) next.delete(dateKey); else next.add(dateKey);
+      setCustomOffDays(next);
+      setUseCustomOff(true);
+      return;
+    }
+
+    if (clickMode === 'no_lectivo') {
+      const next = new Set(nonSchoolDays);
+      if (next.has(dateKey)) next.delete(dateKey); else next.add(dateKey);
+      setNonSchoolDays(next);
+      return;
+    }
+
+    if (clickMode === 'convivencia') {
+      const next = new Set(convivenciaDays);
+      if (next.has(dateKey)) next.delete(dateKey); else next.add(dateKey);
+      setCustomConvDays(next);
+      return;
+    }
+
     if (e && e.shiftKey && lastClickKey && clickMode === 'pedir') {
       const [lm, ld] = lastClickKey.split('-').map(Number);
       const allDays = [];
@@ -905,7 +1130,7 @@
       return;
     }
 
-    if (monthId === 1) { showError('Enero está bloqueado para nuevas peticiones.'); return; }
+    if (monthId === 1) { showError('Enero está bloqueado para peticiones de crédito. (Para sincronizar tus descansos de Enero usa "🎯 Marcar Enero" arriba).'); return; }
     if (baseOffDays.has(dateKey)||vacationDays.has(dateKey)) return;
 
     if (clickMode === 'agotar') {
@@ -978,6 +1203,9 @@
       const isReq     = requestedDays.has(dateKey);
       const isExhausted = exhaustedDays.has(dateKey);
       const isConvivencia = convivenciaDays.has(dateKey);
+      const isNoLectivo = nonSchoolDays.has(dateKey);
+      const holidayName = HOLIDAY_NAMES[dateKey] || null;
+      const isJanSynced = janSyncDays.has(dateKey);
       
       const isPA = planA.has(dateKey), isPB = planB.has(dateKey), isPC = planC.has(dateKey);
       const todayR = new Date();
@@ -987,17 +1215,23 @@
       const isPuente  = highDemandDays.has(dateKey) && !isWeekend;
 
       let cls = 'relative border-r border-b flex flex-col h-14 md:h-16 p-0.5 md:p-1 transition-all duration-150 ';
-      if      (isVac)  cls += 'bg-yellow-300 text-yellow-800 shadow-inner opacity-60';
-      else if (isOff)  cls += 'bg-slate-800 text-white shadow-inner opacity-60';
+      if      (isVac)  cls += 'bg-yellow-300 text-yellow-800 shadow-inner opacity-75';
+      else if (isOff)  cls += 'bg-slate-800 text-white shadow-inner opacity-75';
       else if (isExhausted) cls += 'bg-red-200 text-red-900 border-red-400 opacity-60 cursor-not-allowed';
       else if (isReq)  cls += 'bg-green-500 text-white ring-2 ring-green-600 shadow-md cursor-pointer scale-100 z-10';
       else if (isPA)   cls += 'bg-yellow-50 text-yellow-900 border-2 border-dashed border-yellow-500 shadow-sm cursor-pointer hover:bg-yellow-100';
       else if (isPB)   cls += 'bg-orange-50 text-orange-900 border-2 border-dashed border-orange-500 shadow-sm cursor-pointer hover:bg-orange-100';
       else if (isPC)   cls += 'bg-slate-50 text-slate-700 border-2 border-dashed border-slate-500 shadow-sm cursor-pointer hover:bg-slate-100';
+      else if (isNoLectivo) cls += 'bg-cyan-50 hover:bg-cyan-100 cursor-pointer border-cyan-300';
       else if (quota===0 && monthData.id!==1) cls += 'bg-red-50 text-red-400 cursor-not-allowed opacity-70';
       else if (isToday)  cls += 'bg-blue-100 ring-2 ring-inset ring-blue-500 cursor-pointer';
       else if (isPuente) cls += 'bg-orange-50 hover:bg-orange-100 cursor-pointer border-orange-200';
       else               cls += 'bg-white hover:bg-blue-50 cursor-pointer';
+
+      let extraRings = '';
+      if (isConvivencia && !isReq && !isOff && !isVac) extraRings += ' ring-2 ring-inset ring-purple-500';
+      if (isNoLectivo && !isReq && !isOff && !isVac)   extraRings += ' ring-2 ring-inset ring-cyan-500';
+      if (isJanSynced)                                 extraRings += ' ring-2 ring-inset ring-emerald-400';
 
       cells.push(
         <div key={day}
@@ -1006,47 +1240,59 @@
              onMouseEnter={(e) => setTooltip({x:e.clientX, y:e.clientY, day,
                monthName:monthData.name, dow:DOW_NAMES[(monthData.startDay+day-1)%7],
                quota:isOff||isVac?null:quota, isOff, isVac, isReq, isPuente,
-               isConvivencia, holiday:HOLIDAY_NAMES[dateKey]||null,
+               isConvivencia, isNoLectivo, holiday:holidayName,
                planType:isPA?'A':isPB?'B':isPC?'C':null,
                note:hasNote?notes[dateKey]:null})}
              onMouseLeave={()=>setTooltip(null)}
-             className={cls + (isConvivencia && !isReq && !isOff && !isVac ? ' ring-2 ring-inset ring-purple-400' : '')}>
+             className={cls + extraRings}>
           {isExhausted && (
              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                <XCircle size={28} strokeWidth={1.5} className="text-red-600 opacity-30 md:opacity-40" />
              </div>
           )}
-          {isPuente && !isVac && !isOff && !isExhausted && (
+          {isPuente && !isVac && !isOff && !isExhausted && !holidayName && (
             <div className="absolute top-0 right-0 p-0.5">
               <Flame size={10} className="text-orange-500 opacity-60 md:opacity-80" />
             </div>
           )}
-          <div className="flex justify-between items-start leading-none relative z-10">
+          <div className="flex justify-between items-start leading-none relative z-10 gap-0.5">
             <span className={`font-black text-xs md:text-sm ${
               !isOff&&!isVac&&!isReq&&!isExhausted&&!isPlan
-                ? isWeekend?'text-red-500':isPuente?'text-orange-700':'text-slate-700'
+                ? (holidayName || isWeekend)?'text-red-600':isPuente?'text-orange-700':'text-slate-700'
                 : ''}`}>
               {day}
             </span>
-            {isToday && !isVac && !isOff && <span className="text-[7px] font-black text-blue-700 bg-blue-200 px-0.5 rounded hidden sm:inline">HOY</span>}
+            <div className="flex flex-wrap justify-end gap-0.5">
+              {isToday && !isVac && !isOff && <span className="text-[7px] font-black text-blue-700 bg-blue-200 px-0.5 rounded hidden sm:inline">HOY</span>}
+              {isVac  && <span className="text-[7px] md:text-[8px] font-black text-yellow-900 bg-yellow-400/60 px-0.5 rounded">VAC</span>}
+              {isOff  && !isVac && <span className="text-[7px] md:text-[8px] text-slate-200 font-bold">LIB</span>}
+              {isReq  && <span className="text-[7px] md:text-[8px] bg-white text-green-700 font-black px-0.5 rounded">PED</span>}
+              {isConvivencia && <span className="text-[7px] md:text-[8px] bg-purple-600 text-white font-black px-0.5 rounded">CONV</span>}
+              {isNoLectivo && <span className="text-[7px] md:text-[8px] bg-cyan-600 text-white font-black px-0.5 rounded">🎒</span>}
+              {isPA && <span className="text-[7px] md:text-[8px] bg-yellow-400 text-yellow-900 font-black px-0.5 rounded hidden sm:inline">PLA</span>}
+              {isPB && <span className="text-[7px] md:text-[8px] bg-orange-400 text-orange-900 font-black px-0.5 rounded hidden sm:inline">PLB</span>}
+              {isPC && <span className="text-[7px] md:text-[8px] bg-slate-400 text-white font-black px-0.5 rounded hidden sm:inline">PLC</span>}
+            </div>
             {hasNote && <span className="absolute bottom-0.5 left-0.5 w-1.5 h-1.5 bg-purple-500 rounded-full z-20"/>}
-            {isVac  && <span className="text-[7px] md:text-[8px] font-black text-yellow-800 hidden sm:inline">VAC</span>}
-            {isOff  && !isVac && <span className="text-[7px] md:text-[8px] text-slate-400 hidden sm:inline">LIB</span>}
-            {isReq  && <span className="text-[7px] md:text-[8px] bg-white text-green-700 font-black px-0.5 rounded hidden sm:inline">PED</span>}
-            {isConvivencia && !isReq && !isOff && !isVac && <span className="text-[7px] md:text-[8px] bg-purple-500 text-white font-black px-0.5 rounded hidden sm:inline">CONV</span>}
-            {isPA && <span className="text-[7px] md:text-[8px] bg-yellow-400 text-yellow-900 font-black px-0.5 rounded hidden sm:inline">PLA</span>}
-            {isPB && <span className="text-[7px] md:text-[8px] bg-orange-400 text-orange-900 font-black px-0.5 rounded hidden sm:inline">PLB</span>}
-            {isPC && <span className="text-[7px] md:text-[8px] bg-slate-400 text-white font-black px-0.5 rounded hidden sm:inline">PLC</span>}
           </div>
+          {holidayName && (
+            <div className={`text-[7px] md:text-[8px] font-black truncate leading-tight mt-0.5 px-0.5 rounded ${
+              isOff || isVac ? 'text-yellow-300 bg-black/30' : isReq ? 'text-white bg-green-700/60' : 'text-red-700 bg-red-100/80'
+            }`}>
+              🎉 {holidayName}
+            </div>
+          )}
           {!isOff&&!isVac&&!isReq&&!isExhausted&&monthData.id!==1 && (
             <div className={`mt-auto text-center font-bold rounded-sm text-[8px] md:text-[9px] p-0.5 relative z-10 truncate ${
               quota===0
                 ?'bg-red-100 text-red-700 border border-red-200'
                 :isPlan 
                   ?(isPA?'bg-yellow-200 text-yellow-800 border-yellow-300':(isPB?'bg-orange-200 text-orange-900 border-orange-300':'bg-slate-200 text-slate-800 border-slate-300'))
-                  :isPuente
-                    ?'bg-orange-100 text-orange-800 border border-orange-200'
-                    :'bg-slate-100 text-slate-600 border border-slate-200'}`}>
+                  :isNoLectivo
+                    ?'bg-cyan-100 text-cyan-900 border border-cyan-300'
+                    :isPuente
+                      ?'bg-orange-100 text-orange-800 border border-orange-200'
+                      :'bg-slate-100 text-slate-600 border border-slate-200'}`}>
               {quota}
             </div>
           )}
@@ -1056,9 +1302,10 @@
 
     return (
       <div key={monthData.id}
-           className={`bg-white border border-slate-300 rounded-xl overflow-hidden shadow-sm flex flex-col ${monthData.id===1?'opacity-70 grayscale-[0.3]':''}`}>
-        <div className={`text-white font-black text-center uppercase tracking-widest py-1 text-[10px] md:text-xs flex items-center justify-center gap-1 ${monthData.id===1?'bg-slate-500':'bg-slate-800'}`}>
+           className={`bg-white border border-slate-300 rounded-xl overflow-hidden shadow-sm flex flex-col ${monthData.id===1 && clickMode!=='sync_enero' && clickMode!=='editar_lib' ? 'opacity-85' : ''} ${monthData.id===1 && clickMode==='sync_enero' ? 'ring-4 ring-emerald-500 shadow-lg' : ''}`}>
+        <div className={`text-white font-black text-center uppercase tracking-widest py-1 text-[10px] md:text-xs flex items-center justify-center gap-1 ${monthData.id===1 ? (clickMode==='sync_enero'?'bg-emerald-700':'bg-slate-600') : 'bg-slate-800'}`}>
           {monthData.name} <span className="opacity-70 font-medium ml-1">{selectedYear}</span>
+          {monthData.id===1 && clickMode==='sync_enero' && <span className="ml-1 bg-white text-emerald-800 text-[8px] font-black px-1.5 rounded-full animate-pulse">HAZ CLIC EN TUS LIB</span>}
           {monthReqCount[monthData.id]>0 && <span className="ml-1 bg-green-500 text-white text-[9px] font-black px-1.5 rounded-full">{monthReqCount[monthData.id]}</span>}
         </div>
         <div className="grid grid-cols-7 bg-slate-100 text-slate-500 border-b border-slate-300">
@@ -1110,10 +1357,11 @@
           <div className="bg-slate-900 text-white text-[11px] rounded-xl shadow-2xl p-3 min-w-[160px] border border-slate-700">
             <div className="font-black text-xs mb-1">{tooltip.dow} {tooltip.day} {tooltip.monthName}</div>
             {tooltip.holiday && <div className="text-yellow-400 font-bold mb-0.5">🎉 {tooltip.holiday}</div>}
-            {tooltip.isOff && <div className="text-slate-400">🔵 Día LIB</div>}
+            {tooltip.isOff && <div className="text-slate-400">🔵 Día LIB (Descanso)</div>}
             {tooltip.isVac && <div className="text-yellow-300">🏖️ Vacaciones</div>}
             {tooltip.isReq && <div className="text-green-400 font-black">✅ PEDIDO</div>}
             {tooltip.isConvivencia && <div className="text-purple-300 font-black">🤝 Convivencia Transmisión</div>}
+            {tooltip.isNoLectivo && <div className="text-cyan-300 font-black">🎒 Día No Lectivo (Cole)</div>}
             {tooltip.planType && <div className="text-orange-300">📌 Plan {tooltip.planType}</div>}
             {tooltip.isPuente && <div className="text-orange-400">🔥 Alta demanda</div>}
             {tooltip.note && <div className="text-purple-300 italic mt-0.5">📝 {tooltip.note}</div>}
@@ -1161,7 +1409,7 @@
           </div>
         )}
 
-        <div className="bg-slate-900 p-3 md:p-6 text-white flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b-4 border-blue-500">
+        <div className="bg-slate-900 p-3 md:p-5 text-white flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b-2 border-slate-800">
           <div className="flex gap-4 items-center w-full sm:w-auto">
             <h1 className="text-xl md:text-2xl font-black flex items-center gap-2 flex-grow">
               <Calculator className="text-blue-400 w-5 h-5 md:w-6 md:h-6" /> Planificador
@@ -1182,9 +1430,9 @@
               className="bg-blue-700 hover:bg-blue-600 text-white px-2.5 py-1.5 rounded-lg font-bold flex items-center gap-1.5 border border-blue-600 text-xs">
               <Zap size={13}/> Sugerir Óptimo
             </button>
-            <button onClick={addConvivencia} title="Añadir V+S+D del último finde de octubre (Convivencia de Transmisión)"
+            <button onClick={addConvivencia} title="Añadir días de Convivencia de Transmisión a tus pedidos"
               className="bg-purple-700 hover:bg-purple-600 text-white px-2.5 py-1.5 rounded-lg font-bold flex items-center gap-1.5 border border-purple-600 text-xs">
-              🤝 Convivencia
+              🤝 Pedir Convivencia
             </button>
             <button onClick={() => window.print()}
               className="bg-slate-700 hover:bg-slate-600 px-2.5 py-1.5 rounded-lg font-bold flex items-center gap-1.5 border border-slate-600 text-xs">
@@ -1213,13 +1461,132 @@
           </div>
         </div>
 
+        {/* ── BARRA RÁPIDA SIEMPRE VISIBLE: GRUPO DE DESCANSO, CARGA .ICS / ENERO Y DÍAS DE CRÉDITO ── */}
+        <div className="bg-gradient-to-r from-blue-950 via-slate-900 to-indigo-950 text-white p-3 md:px-6 md:py-3.5 border-b-4 border-blue-500 shadow-md no-print">
+          <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3">
+            
+            {/* 1. Selector de Grupo de Descanso + Desfase + Sincronizar Enero / ICS */}
+            <div className="flex flex-wrap items-center gap-2 bg-slate-800/90 p-2 rounded-xl border border-slate-700">
+              <div className="flex items-center gap-1.5">
+                <span className="text-[10px] md:text-xs font-black uppercase text-blue-300 tracking-wide">🔵 Tu Grupo Descanso:</span>
+                <div className="flex gap-1">
+                  {[1,2,3,4].map(g => (
+                    <button key={g}
+                      onClick={() => { setRestGroup(g); setUseCustomOff(false); }}
+                      className={`px-2.5 py-1 rounded-lg font-black text-xs transition-all ${!useCustomOff && restGroup === g ? 'bg-blue-500 text-white shadow ring-2 ring-blue-300 scale-105' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}>
+                      G{g}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Ajuste fino de secuencia si el grupo no coincide con el real */}
+              <div className="flex items-center gap-1 bg-slate-900/80 px-2 py-1 rounded-lg border border-slate-700" title="Si los días de tu grupo no coinciden con los reales, desplaza la secuencia día a día">
+                <span className="text-[10px] font-bold text-slate-400">Ajustar ciclo:</span>
+                <button onClick={() => { setUseCustomOff(false); setPatternShift(s => s - 1); }} className="px-1.5 py-0.5 bg-slate-700 hover:bg-slate-600 rounded text-xs font-black">-1d</button>
+                <span className="text-xs font-black text-amber-300 min-w-[28px] text-center">{patternShift > 0 ? `+${patternShift}d` : `${patternShift}d`}</span>
+                <button onClick={() => { setUseCustomOff(false); setPatternShift(s => s + 1); }} className="px-1.5 py-0.5 bg-slate-700 hover:bg-slate-600 rounded text-xs font-black">+1d</button>
+                {patternShift !== 0 && (
+                  <button onClick={() => setPatternShift(0)} className="text-[9px] text-slate-400 hover:text-white ml-0.5" title="Resetear desfase">✕</button>
+                )}
+              </div>
+
+              {/* Marcar Enero para autodetectar secuencia */}
+              <button
+                onClick={() => {
+                  if (clickMode === 'sync_enero') {
+                    setClickMode('pedir');
+                  } else {
+                    setMobileMonth(1);
+                    setClickMode('sync_enero');
+                  }
+                }}
+                className={`px-2.5 py-1 rounded-lg font-black text-xs flex items-center gap-1 transition-all ${clickMode === 'sync_enero' ? 'bg-emerald-500 text-white ring-2 ring-emerald-200 animate-pulse' : 'bg-emerald-800/80 hover:bg-emerald-700 text-emerald-100 border border-emerald-600'}`}
+                title="Marca qué días libras en Enero y la app seguirá la secuencia todo el año">
+                🎯 {clickMode === 'sync_enero' ? 'Terminar Enero' : 'Marcar Enero (Autosecuencia)'}
+              </button>
+
+              {/* Subir archivo .ics */}
+              <label className="px-2.5 py-1 rounded-lg font-black text-xs bg-indigo-700 hover:bg-indigo-600 text-white border border-indigo-500 cursor-pointer flex items-center gap-1 transition-all" title="Importar tus descansos desde tu archivo .ics">
+                📂 Cargar .ics
+                <input type="file" accept=".ics,text/calendar" onChange={handleICSUpload} className="hidden" />
+              </label>
+
+              {/* Editar LIB manualmente */}
+              <button
+                onClick={() => setClickMode(clickMode === 'editar_lib' ? 'pedir' : 'editar_lib')}
+                className={`px-2 py-1 rounded-lg font-bold text-[11px] flex items-center gap-1 transition-all ${clickMode === 'editar_lib' ? 'bg-amber-400 text-slate-900 font-black ring-2 ring-amber-200' : 'bg-slate-700 hover:bg-slate-600 text-slate-200'}`}>
+                ✏️ {clickMode === 'editar_lib' ? 'Guardando LIB...' : 'Editar LIB'}
+              </button>
+
+              {useCustomOff && (
+                <span className="text-[10px] bg-indigo-900/90 text-indigo-200 px-2 py-0.5 rounded-full font-bold border border-indigo-600 flex items-center gap-1">
+                  Personalizado/.ics ({customOffDays.size} LIB)
+                  <button onClick={() => setUseCustomOff(false)} className="text-red-300 hover:text-white ml-1 font-black" title="Volver al patrón de grupo">✕</button>
+                </span>
+              )}
+            </div>
+
+            {/* 2. Días que te deben (Nombramiento) editable directamente */}
+            <div className="flex flex-wrap items-center gap-2 bg-slate-800/90 p-2 rounded-xl border border-slate-700">
+              <div className="flex items-center gap-1.5">
+                <span className="text-[10px] md:text-xs font-black uppercase text-emerald-300">🎫 Días que me deben (Nombramiento):</span>
+                <div className="flex items-center bg-slate-900 rounded-lg border border-emerald-500/60 px-1">
+                  <button onClick={() => setManualCredit(Math.max(0, Math.floor(stats.credit) - 1))} className="px-2 py-0.5 text-emerald-400 hover:text-white font-black text-sm">-</button>
+                  <input
+                    type="number"
+                    min="0"
+                    max="40"
+                    value={manualCredit !== null && manualCredit !== '' ? manualCredit : Math.floor(stats.autoCredit)}
+                    onChange={e => setManualCredit(e.target.value === '' ? null : parseInt(e.target.value, 10))}
+                    className="w-10 text-center bg-transparent font-black text-emerald-300 text-sm outline-none"
+                  />
+                  <button onClick={() => setManualCredit(Math.floor(stats.credit) + 1)} className="px-2 py-0.5 text-emerald-400 hover:text-white font-black text-sm">+</button>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-1 text-[11px] bg-slate-900/80 px-2 py-1 rounded-lg border border-slate-700" title="Obligatorios entre semana (L-V) y libres (S-D)">
+                <span className="text-slate-400 font-bold">Oblig. L-V:</span>
+                <input
+                  type="number"
+                  min="0"
+                  max={Math.floor(stats.credit)}
+                  value={Math.floor(stats.obligatoryLV)}
+                  onChange={e => setManualObligLV(e.target.value === '' ? null : parseInt(e.target.value, 10))}
+                  className="w-8 text-center bg-slate-800 rounded font-black text-orange-300 text-xs outline-none border border-slate-600"
+                />
+                <span className="text-slate-400 font-bold ml-1">S-D:</span>
+                <span className="font-black text-green-400">{Math.floor(stats.freeSD)}</span>
+              </div>
+
+              <button
+                onClick={() => setShowRadar(r => !r)}
+                className={`px-2.5 py-1 rounded-lg font-black text-xs flex items-center gap-1 transition-all ${showRadar ? 'bg-amber-500 text-slate-900' : 'bg-slate-700 text-slate-200 hover:bg-slate-600'}`}>
+                📌 {showRadar ? 'Ocultar Festivos' : 'Ver Festivos Clave'}
+              </button>
+            </div>
+
+          </div>
+          {clickMode === 'sync_enero' && (
+            <div className="mt-2 bg-emerald-900/90 border border-emerald-400 text-emerald-100 px-3 py-1.5 rounded-lg text-xs font-bold flex flex-wrap items-center justify-between gap-2">
+              <span>👉 Haz clic en <strong className="text-white underline">2 o 3 días que libres en ENERO {selectedYear}</strong> en el calendario y la aplicación sincronizará automáticamente toda la secuencia del año.</span>
+              <div className="flex gap-2">
+                {janSyncDays.size > 0 && (
+                  <button onClick={() => setJanSyncDays(new Set())} className="bg-emerald-800 hover:bg-emerald-700 px-2 py-0.5 rounded text-[11px] border border-emerald-500">Limpiar selección ({janSyncDays.size})</button>
+                )}
+                <button onClick={() => setClickMode('pedir')} className="bg-white text-emerald-900 font-black px-2.5 py-0.5 rounded text-[11px]">✓ Listo</button>
+              </div>
+            </div>
+          )}
+        </div>
+
         <div className="flex flex-col xl:flex-row flex-1">
 
           <div className="xl:w-96 bg-slate-50 border-r border-slate-200 p-2 md:p-6 flex flex-col gap-3 md:gap-5 overflow-y-auto xl:max-h-[calc(100vh-100px)]">
 
             <button onClick={() => setShowConfig(!showConfig)} 
                     className="xl:hidden bg-slate-800 text-white p-3 rounded-xl font-bold flex justify-between items-center shadow-md active:scale-[0.98] transition-all">
-              <span className="flex items-center gap-2"><Settings size={16}/> Variables {selectedYear}</span>
+              <span className="flex items-center gap-2"><Settings size={16}/> Más Variables (Turno, Vacaciones, Tsunami)</span>
               {showConfig ? <ChevronUp size={20}/> : <ChevronDown size={20}/>}
             </button>
 
@@ -1314,11 +1681,11 @@
 
               <div className="bg-white p-3 md:p-4 rounded-xl border border-slate-200 shadow-sm">
                 <h3 className="font-black mb-3 text-slate-800 uppercase text-xs flex items-center gap-2">
-                  <PlaneTakeoff size={14}/> 2. Personales
+                  <PlaneTakeoff size={14}/> 2. Vacaciones y Descansos
                 </h3>
 
                 <label className="block text-[10px] md:text-[11px] font-bold text-slate-500 mb-1">Grupo de Descanso:</label>
-                <select value={restGroup} onChange={e=>setRestGroup(parseInt(e.target.value))}
+                <select value={restGroup} onChange={e=>{setRestGroup(parseInt(e.target.value)); setUseCustomOff(false);}}
                         className="w-full mb-2 p-1.5 md:p-2 text-xs border rounded-lg bg-slate-50 font-bold text-slate-700 border-slate-200">
                   {[1,2,3,4].map(g=><option key={g} value={g}>Grupo {g} (Patrón 28 días)</option>)}
                 </select>
@@ -1356,26 +1723,46 @@
                   <p className="text-[10px] text-slate-500 mb-2 font-bold text-center">¿Fraccionas vacaciones (quincenas / días sueltos)?</p>
                   <button onClick={() => setClickMode(clickMode === 'vacaciones' ? 'pedir' : 'vacaciones')} 
                           className={`w-full py-1.5 flex items-center justify-center gap-2 rounded-lg font-black text-xs transition-all shadow-sm ${clickMode === 'vacaciones' ? 'bg-yellow-400 text-yellow-900 border-2 border-yellow-500 scale-105' : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-300'}`}>
-                    <Edit3 size={14}/> {clickMode==='vacaciones'?'Terminar Edición (Guardar)':'Editar Días en el Calendario'}
+                    <Edit3 size={14}/> {clickMode==='vacaciones'?'Terminar Edición (Guardar)':'Editar VAC en el Calendario'}
                   </button>
                   {clickMode==='vacaciones' && <p className="text-[9px] md:text-[10px] text-yellow-700 font-bold mt-2 text-center animate-pulse">Haz clic en los días del calendario para sumar o restar VAC.</p>}
                 </div>
               </div>
 
               <div className="bg-blue-50 p-3 md:p-5 rounded-xl border border-blue-200 shadow-sm">
-                <h3 className="font-black text-blue-900 uppercase tracking-wide text-xs mb-2 md:mb-3">3. Cómputo Anual</h3>
-                <div className="flex justify-between items-end mb-3 md:mb-4">
+                <div className="flex justify-between items-center mb-2">
+                  <h3 className="font-black text-blue-900 uppercase tracking-wide text-xs">3. Cómputo Anual</h3>
+                  <button onClick={() => { setManualCredit(9); setManualObligLV(null); }} className="text-[9px] bg-blue-100 hover:bg-blue-200 text-blue-800 px-1.5 py-0.5 rounded font-bold">9 días (Def.)</button>
+                </div>
+                <div className="flex justify-between items-end mb-3">
                   <div>
-                    <span className="font-bold text-blue-900 text-sm md:text-base">Crédito Libre:</span>
-                    <span className="text-[10px] md:text-xs text-blue-600 block">Pide donde quieras</span>
+                    <span className="font-bold text-blue-900 text-sm md:text-base">Días que me deben:</span>
+                    <span className="text-[10px] text-blue-600 block">Nombramiento (editable)</span>
                   </div>
-                  <span className="text-2xl md:text-3xl font-black text-blue-700">{Math.floor(stats.credit)} <span className="text-[10px] md:text-sm">días</span></span>
+                  <div className="flex items-center gap-1">
+                    <input
+                      type="number"
+                      min="0"
+                      max="40"
+                      value={manualCredit !== null && manualCredit !== '' ? manualCredit : Math.floor(stats.autoCredit)}
+                      onChange={e => setManualCredit(e.target.value === '' ? null : parseInt(e.target.value, 10))}
+                      className="w-14 text-center bg-white border-2 border-blue-400 rounded-lg font-black text-blue-800 text-xl py-0.5 outline-none"
+                    />
+                    <span className="text-xs font-bold text-blue-700">días</span>
+                  </div>
                 </div>
                 <div className="bg-white p-2 md:p-3 rounded-lg border border-orange-200">
-                  <h4 className="text-[10px] md:text-xs font-black text-orange-800 uppercase mb-1 md:mb-2">Regla 7 L-V</h4>
-                  <div className="flex justify-between text-xs md:text-sm mb-1">
+                  <h4 className="text-[10px] md:text-xs font-black text-orange-800 uppercase mb-1 md:mb-2">Desglose L-V / S-D</h4>
+                  <div className="flex justify-between items-center text-xs md:text-sm mb-1">
                     <span className="font-bold text-slate-600">Obligatorios L-V:</span>
-                    <span className="font-black text-red-600">{Math.floor(stats.obligatoryLV)}</span>
+                    <input
+                      type="number"
+                      min="0"
+                      max={Math.floor(stats.credit)}
+                      value={Math.floor(stats.obligatoryLV)}
+                      onChange={e => setManualObligLV(e.target.value === '' ? null : parseInt(e.target.value, 10))}
+                      className="w-12 text-center border border-orange-300 rounded font-black text-red-600 bg-orange-50"
+                    />
                   </div>
                   <div className="flex justify-between text-xs md:text-sm">
                     <span className="font-bold text-slate-600">Libres (S-D/L-V):</span>
@@ -1493,7 +1880,7 @@
                 </div>
               )}
               
-              <h4 className="font-bold text-[9px] md:text-[10px] text-green-700 uppercase mb-2">Pedidos Realizados</h4>
+              <h4 className="font-bold text-[9px] md:text-[10px] text-green-700 uppercase mb-2">Pedidos Realizados ({reqStats.total}/{Math.floor(stats.credit)})</h4>
               {sortedRequestedDays.length === 0 ? (
                 <p className="text-[10px] md:text-xs text-emerald-700 italic font-medium mb-3">No has pedido días todavía.</p>
               ) : (
@@ -1534,29 +1921,102 @@
               <span className="text-xs md:text-sm">{errorMsg}</span>
             </div>
 
-            <div className="hidden md:flex flex-col md:flex-row justify-between items-start md:items-center gap-2 mb-4 bg-white p-2 md:p-3 rounded-xl shadow-sm border border-slate-200">
-               <button onClick={()=>setClickMode('pedir')} className={`flex-1 px-2 py-2 rounded-xl font-black text-[11px] xl:text-xs flex flex-col justify-center items-center gap-1 transition-all ${clickMode==='pedir' ? 'bg-green-500 text-white shadow-md ring-4 ring-green-200 scale-105' : 'bg-slate-100 text-slate-500 hover:bg-green-50'}`}>
-                  <CheckCircle2 size={16} /> Pedir
+            {/* ── RADAR DE UN PLUMAZO: FESTIVOS Y EVENTOS IMPORTANTES DEL AÑO ── */}
+            {showRadar && (
+              <div className="mb-4 bg-white rounded-xl p-3 md:p-4 shadow-sm border border-slate-200 no-print">
+                <div className="flex flex-wrap items-center justify-between gap-2 mb-2.5">
+                  <h3 className="font-black text-xs md:text-sm text-slate-800 uppercase flex items-center gap-1.5">
+                    📌 De un plumazo: ¿Libras los días importantes de {selectedYear}?
+                  </h3>
+                  <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
+                    <button
+                      onClick={() => setClickMode(clickMode === 'convivencia' ? 'pedir' : 'convivencia')}
+                      className={`px-2 py-1 rounded-lg font-black flex items-center gap-1 border transition-all ${clickMode === 'convivencia' ? 'bg-purple-600 text-white border-purple-700 ring-2 ring-purple-300 animate-pulse' : 'bg-purple-50 text-purple-800 border-purple-300 hover:bg-purple-100'}`}>
+                      🤝 {clickMode === 'convivencia' ? 'Guardando fechas Convivencia...' : 'Cambiar fechas Convivencia'}
+                    </button>
+                    {customConvDays.size > 0 && (
+                      <button onClick={() => setCustomConvDays(new Set())} className="text-[10px] text-purple-600 hover:underline font-bold" title="Restaurar al último finde de Octubre">Reset Conv.</button>
+                    )}
+                    <button
+                      onClick={() => setClickMode(clickMode === 'no_lectivo' ? 'pedir' : 'no_lectivo')}
+                      className={`px-2 py-1 rounded-lg font-black flex items-center gap-1 border transition-all ${clickMode === 'no_lectivo' ? 'bg-cyan-600 text-white border-cyan-700 ring-2 ring-cyan-300 animate-pulse' : 'bg-cyan-50 text-cyan-800 border-cyan-300 hover:bg-cyan-100'}`}>
+                      🎒 {clickMode === 'no_lectivo' ? 'Marcando No Lectivos...' : `Marcar Días No Lectivos (${nonSchoolDays.size})`}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-8 gap-2">
+                  {keyMilestones.map(m => (
+                    <div key={m.id} className={`p-2 rounded-xl border flex flex-col justify-between transition-all ${
+                      m.allFree ? 'bg-emerald-50/70 border-emerald-300' : m.someFree ? 'bg-amber-50/70 border-amber-300' : 'bg-red-50/50 border-red-200'
+                    }`}>
+                      <div className="flex items-center justify-between gap-1 mb-1.5">
+                        <span className="font-black text-[10px] md:text-[11px] text-slate-800 leading-tight">{m.icon} {m.title}</span>
+                        {m.editable && (
+                          <button onClick={() => setClickMode(clickMode === 'convivencia' ? 'pedir' : 'convivencia')} className="text-[9px] bg-purple-200 text-purple-900 px-1 rounded font-bold hover:bg-purple-300" title="Editar días de Convivencia en el calendario">✏️</button>
+                        )}
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        {m.dayDetails.map(dd => (
+                          <div key={dd.key}
+                               onClick={() => setMobileMonth(dd.m)}
+                               className="flex items-center justify-between text-[9px] md:text-[10px] bg-white/90 px-1.5 py-0.5 rounded border border-slate-200/80 cursor-pointer hover:border-blue-400">
+                            <span className="font-bold text-slate-700">{dd.label}</span>
+                            <span className={`font-black px-1 rounded text-[8px] ${
+                              dd.status === 'LIB' ? 'bg-slate-800 text-white' :
+                              dd.status === 'VAC' ? 'bg-yellow-300 text-yellow-900' :
+                              dd.status === 'PEDIDO' ? 'bg-green-500 text-white' :
+                              dd.status === 'PLAN' ? 'bg-amber-200 text-amber-900' :
+                              'bg-red-100 text-red-700'
+                            }`}>
+                              {dd.status === 'LIB' ? '🟢 LIB' :
+                               dd.status === 'VAC' ? '🏖️ VAC' :
+                               dd.status === 'PEDIDO' ? '✅ PED' :
+                               dd.status === 'PLAN' ? '📌 PLAN' : '🔴 TRAB'}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Barra de herramientas / modos de clic en escritorio */}
+            <div className="hidden md:flex flex-wrap justify-between items-center gap-1.5 mb-4 bg-white p-2 rounded-xl shadow-sm border border-slate-200 no-print">
+               <button onClick={()=>setClickMode('pedir')} className={`flex-1 min-w-[90px] px-2 py-2 rounded-xl font-black text-[11px] flex flex-col justify-center items-center gap-0.5 transition-all ${clickMode==='pedir' ? 'bg-green-500 text-white shadow-md ring-2 ring-green-300 scale-[1.02]' : 'bg-slate-100 text-slate-600 hover:bg-green-50'}`}>
+                  <CheckCircle2 size={15} /> Pedir Crédito
                </button>
-               <button onClick={()=>setClickMode('plan_a')} className={`flex-1 px-2 py-2 rounded-xl font-black text-[11px] xl:text-xs flex flex-col justify-center items-center gap-1 transition-all ${clickMode==='plan_a' ? 'bg-yellow-400 text-yellow-900 shadow-md ring-4 ring-yellow-200 scale-105' : 'bg-slate-100 text-slate-500 hover:bg-yellow-50'}`}>
-                  <Star size={16} /> Plan A
+               <button onClick={()=>setClickMode('plan_a')} className={`flex-1 min-w-[80px] px-2 py-2 rounded-xl font-black text-[11px] flex flex-col justify-center items-center gap-0.5 transition-all ${clickMode==='plan_a' ? 'bg-yellow-400 text-yellow-900 shadow-md ring-2 ring-yellow-300 scale-[1.02]' : 'bg-slate-100 text-slate-600 hover:bg-yellow-50'}`}>
+                  <Star size={15} /> Plan A
                </button>
-               <button onClick={()=>setClickMode('plan_b')} className={`flex-1 px-2 py-2 rounded-xl font-black text-[11px] xl:text-xs flex flex-col justify-center items-center gap-1 transition-all ${clickMode==='plan_b' ? 'bg-orange-400 text-orange-900 shadow-md ring-4 ring-orange-200 scale-105' : 'bg-slate-100 text-slate-500 hover:bg-orange-50'}`}>
-                  <Star size={16} /> Plan B
+               <button onClick={()=>setClickMode('plan_b')} className={`flex-1 min-w-[80px] px-2 py-2 rounded-xl font-black text-[11px] flex flex-col justify-center items-center gap-0.5 transition-all ${clickMode==='plan_b' ? 'bg-orange-400 text-orange-900 shadow-md ring-2 ring-orange-300 scale-[1.02]' : 'bg-slate-100 text-slate-600 hover:bg-orange-50'}`}>
+                  <Star size={15} /> Plan B
                </button>
-               <button onClick={()=>setClickMode('plan_c')} className={`flex-1 px-2 py-2 rounded-xl font-black text-[11px] xl:text-xs flex flex-col justify-center items-center gap-1 transition-all ${clickMode==='plan_c' ? 'bg-slate-400 text-slate-900 shadow-md ring-4 ring-slate-200 scale-105' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}>
-                  <Star size={16} /> Plan C
+               <button onClick={()=>setClickMode('plan_c')} className={`flex-1 min-w-[80px] px-2 py-2 rounded-xl font-black text-[11px] flex flex-col justify-center items-center gap-0.5 transition-all ${clickMode==='plan_c' ? 'bg-slate-400 text-slate-900 shadow-md ring-2 ring-slate-300 scale-[1.02]' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
+                  <Star size={15} /> Plan C
                </button>
-               <button onClick={()=>setClickMode('agotar')} className={`flex-1 px-2 py-2 rounded-xl font-black text-[11px] xl:text-xs flex flex-col justify-center items-center gap-1 transition-all ${clickMode==='agotar' ? 'bg-red-500 text-white shadow-md ring-4 ring-red-200 scale-105' : 'bg-slate-100 text-slate-500 hover:bg-red-50'}`}>
-                  <XCircle size={16} /> Agotar
+               <button onClick={()=>setClickMode('no_lectivo')} className={`flex-1 min-w-[95px] px-2 py-2 rounded-xl font-black text-[11px] flex flex-col justify-center items-center gap-0.5 transition-all ${clickMode==='no_lectivo' ? 'bg-cyan-600 text-white shadow-md ring-2 ring-cyan-300 scale-[1.02]' : 'bg-cyan-50 text-cyan-800 hover:bg-cyan-100'}`}>
+                  <span className="text-sm leading-none">🎒</span> Día No Lectivo
+               </button>
+               <button onClick={()=>setClickMode('convivencia')} className={`flex-1 min-w-[95px] px-2 py-2 rounded-xl font-black text-[11px] flex flex-col justify-center items-center gap-0.5 transition-all ${clickMode==='convivencia' ? 'bg-purple-600 text-white shadow-md ring-2 ring-purple-300 scale-[1.02]' : 'bg-purple-50 text-purple-800 hover:bg-purple-100'}`}>
+                  <span className="text-sm leading-none">🤝</span> Fechas Conviv.
+               </button>
+               <button onClick={()=>setClickMode('agotar')} className={`flex-1 min-w-[80px] px-2 py-2 rounded-xl font-black text-[11px] flex flex-col justify-center items-center gap-0.5 transition-all ${clickMode==='agotar' ? 'bg-red-500 text-white shadow-md ring-2 ring-red-300 scale-[1.02]' : 'bg-slate-100 text-slate-600 hover:bg-red-50'}`}>
+                  <XCircle size={15} /> Agotar
                </button>
             </div>
 
-            <div className="w-full bg-slate-50 p-2 md:p-3 mb-3 md:mb-4 flex flex-wrap gap-x-2 gap-y-1 md:gap-4 rounded-lg text-[9px] md:text-[11px] font-bold text-slate-600 border border-slate-200 justify-center">
+            <div className="w-full bg-slate-50 p-2 md:p-2.5 mb-3 md:mb-4 flex flex-wrap gap-x-3 gap-y-1 rounded-lg text-[9px] md:text-[11px] font-bold text-slate-600 border border-slate-200 justify-center items-center">
+              <div className="flex items-center gap-1"><div className="w-2.5 h-2.5 rounded bg-slate-800" />LIB (Descanso)</div>
+              <div className="flex items-center gap-1"><div className="w-2.5 h-2.5 rounded bg-yellow-300" />VAC (Vacaciones)</div>
+              <div className="flex items-center gap-1"><div className="w-2.5 h-2.5 rounded bg-green-500" />PED (Pedido)</div>
+              <div className="flex items-center gap-1"><div className="w-2.5 h-2.5 rounded bg-cyan-500" />🎒 No Lectivo (Cole)</div>
+              <div className="flex items-center gap-1"><div className="w-2.5 h-2.5 rounded bg-purple-600" />🤝 Convivencia</div>
               <div className="flex items-center gap-1"><div className="w-2.5 h-2.5 rounded bg-yellow-100 border-2 border-dashed border-yellow-500" />Pl. A</div>
               <div className="flex items-center gap-1"><div className="w-2.5 h-2.5 rounded bg-orange-100 border-2 border-dashed border-orange-500" />Pl. B</div>
-              <div className="flex items-center gap-1"><div className="w-2.5 h-2.5 rounded bg-slate-100 border-2 border-dashed border-slate-500" />Pl. C</div>
-              <div className="flex items-center gap-1 ml-auto border-l pl-2 text-red-600"><span className="text-xs">❌</span>Agotado</div>
+              <div className="flex items-center gap-1 text-red-600"><span className="text-xs">🎉</span>Festivo</div>
             </div>
 
             <div className="hidden sm:grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 md:gap-4 w-full">
@@ -1584,22 +2044,25 @@
               {dynamicMonths.filter(m=>m.id===mobileMonth).map(m=>renderMonthCalendar(m))}
             </div>
 
-            {/* Mobile Bottom Action Bar (5 elements) */}
-            <div className="md:hidden no-print fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 p-1 pb-safe flex justify-around shadow-[0_-10px_20px_rgba(0,0,0,0.1)] z-40">
+            {/* Mobile Bottom Action Bar */}
+            <div className="md:hidden no-print fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 p-1 pb-safe flex justify-around shadow-[0_-10px_20px_rgba(0,0,0,0.1)] z-40 overflow-x-auto">
                <button onClick={()=>setClickMode('pedir')} className={`flex-1 flex flex-col items-center p-1 rounded-xl transition-all ${clickMode==='pedir'?'bg-green-100 text-green-800 font-black scale-105':'text-slate-500 font-bold'}`}>
-                  <CheckCircle2 size={18}/> <span className="text-[9px] mt-0.5">PEDIR</span>
+                  <CheckCircle2 size={16}/> <span className="text-[8px] mt-0.5">PEDIR</span>
                </button>
                <button onClick={()=>setClickMode('plan_a')} className={`flex-1 flex flex-col items-center p-1 rounded-xl transition-all ${clickMode==='plan_a'?'bg-yellow-100 text-yellow-800 font-black scale-105':'text-slate-500 font-bold'}`}>
-                  <Star size={18}/> <span className="text-[9px] mt-0.5">PLA A</span>
+                  <Star size={16}/> <span className="text-[8px] mt-0.5">PLA A</span>
                </button>
                <button onClick={()=>setClickMode('plan_b')} className={`flex-1 flex flex-col items-center p-1 rounded-xl transition-all ${clickMode==='plan_b'?'bg-orange-100 text-orange-800 font-black scale-105':'text-slate-500 font-bold'}`}>
-                  <Star size={18}/> <span className="text-[9px] mt-0.5">PLA B</span>
+                  <Star size={16}/> <span className="text-[8px] mt-0.5">PLA B</span>
                </button>
-               <button onClick={()=>setClickMode('plan_c')} className={`flex-1 flex flex-col items-center p-1 rounded-xl transition-all ${clickMode==='plan_c'?'bg-slate-200 text-slate-800 font-black scale-105':'text-slate-500 font-bold'}`}>
-                  <Star size={18}/> <span className="text-[9px] mt-0.5">PLA C</span>
+               <button onClick={()=>setClickMode('no_lectivo')} className={`flex-1 flex flex-col items-center p-1 rounded-xl transition-all ${clickMode==='no_lectivo'?'bg-cyan-100 text-cyan-800 font-black scale-105':'text-slate-500 font-bold'}`}>
+                  <span className="text-sm leading-none">🎒</span> <span className="text-[8px] mt-0.5">COLE</span>
+               </button>
+               <button onClick={()=>setClickMode('convivencia')} className={`flex-1 flex flex-col items-center p-1 rounded-xl transition-all ${clickMode==='convivencia'?'bg-purple-100 text-purple-800 font-black scale-105':'text-slate-500 font-bold'}`}>
+                  <span className="text-sm leading-none">🤝</span> <span className="text-[8px] mt-0.5">CONV</span>
                </button>
                <button onClick={()=>setClickMode('agotar')} className={`flex-1 flex flex-col items-center p-1 rounded-xl transition-all ${clickMode==='agotar'?'bg-red-100 text-red-800 font-black scale-105':'text-slate-500 font-bold'}`}>
-                  <XCircle size={18}/> <span className="text-[9px] mt-0.5">AGOTAR</span>
+                  <XCircle size={16}/> <span className="text-[8px] mt-0.5">AGOTAR</span>
                </button>
             </div>
 
