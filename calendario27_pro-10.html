@@ -242,7 +242,7 @@
           const [manualCredit,    setManualCredit]  = useState(() => loadVal('pln_mcred', 9));
           const [manualObligLV,   setManualObligLV] = useState(() => loadVal('pln_mlv', null));
           const [nonSchoolDays,   setNonSchoolDays] = useState(() => loadSet('pln_noschool_v2', getDefaultSchoolDaysMadrid(2027)));
-          const [customConvDays,  setCustomConvDays]= useState(() => loadSet('pln_conv_days'));
+          const [customConvDays,  setCustomConvDays]= useState(() => loadSet('pln_conv_days_v2'));
           const [showRadar,       setShowRadar]     = useState(() => loadVal('pln_radar', true));
 
           const [groupLastYear,   setGroupLastYear] = useState(() => loadVal('pln_gly_v2', 5));
@@ -296,7 +296,7 @@
           useEffect(() => saveSet('pln_exhausted', exhaustedDays), [exhaustedDays]);
           useEffect(() => saveSet('pln_customOff', customOffDays), [customOffDays]);
           useEffect(() => saveSet('pln_noschool_v2', nonSchoolDays), [nonSchoolDays]);
-          useEffect(() => saveSet('pln_conv_days', customConvDays),[customConvDays]);
+          useEffect(() => saveSet('pln_conv_days_v2', customConvDays),[customConvDays]);
           useEffect(() => localStorage.setItem('pln_year',  JSON.stringify(selectedYear)), [selectedYear]);
           useEffect(() => localStorage.setItem('pln_turn',  JSON.stringify(turn)),         [turn]);
           useEffect(() => localStorage.setItem('pln_t2027', JSON.stringify(initialTurn2027)), [initialTurn2027]);
@@ -464,6 +464,7 @@
       setTurn(getRotatedTurnForYear(initialTurn2027, newYear));
     }
     setNonSchoolDays(getDefaultSchoolDaysMadrid(newYear));
+    setCustomConvDays(new Set());
     setRequestedDays(new Set());
     setPlanA(new Set());
     setPlanB(new Set());
@@ -541,24 +542,16 @@
     return hd;
   }, [selectedYear]);
 
-  // ── Convivencia de Transmisión: V+S+D del último finde de octubre o personalizado ──
-  const defaultConvivenciaDays = useMemo(() => {
-    const oct31 = new Date(selectedYear, 9, 31); // 31 de octubre
-    const oct31dow = oct31.getDay(); // 0=Dom, 6=Sab
-    const daysToLastSun = oct31dow === 0 ? 0 : oct31dow;
-    const lastSun = new Date(oct31.getTime() - daysToLastSun * 86400000);
-    const lastSat = new Date(lastSun.getTime() - 86400000);
-    const lastFri = new Date(lastSun.getTime() - 2 * 86400000);
-    const fmtC = d => `${d.getMonth()+1}-${d.getDate()}`;
-    return new Set([fmtC(lastFri), fmtC(lastSat), fmtC(lastSun)]);
-  }, [selectedYear]);
-
-  const convivenciaDays = useMemo(() => {
-    return (customConvDays && customConvDays.size > 0) ? customConvDays : defaultConvivenciaDays;
-  }, [customConvDays, defaultConvivenciaDays]);
+  // ── Convivencia de Transmisión: Sin asignar por defecto (se asigna manualmente cada año: V, S y D entre Oct y Dic) ──
+  const convivenciaDays = customConvDays;
 
   // ── Añadir días de convivencia a pedidos ──
   const addConvivencia = () => {
+    if (!convivenciaDays || convivenciaDays.size === 0) {
+      setClickMode('convivencia');
+      notify('👉 Primero asigna manualmente los días (V, S y D) de la Convivencia de Transmisión en el calendario.', 'info');
+      return;
+    }
     const days = Array.from(convivenciaDays);
     const available = days.filter(k => {
       const [ms, ds] = k.split('-').map(Number);
@@ -569,7 +562,7 @@
       return !baseOffDays.has(k) && !vacationDays.has(k) && !exhaustedDays.has(k)
              && getRemainingQuota(ms, ds, isWE) > 0;
     });
-    if (!available.length) { showError('Los días de Convivencia ya los libras, no tienen cupo o están bloqueados.'); return; }
+    if (!available.length) { showError('Los días de Convivencia asignados ya los libras, no tienen cupo o están bloqueados.'); return; }
     pushHistory();
     const n = new Set(requestedDays);
     available.forEach(k => n.add(k));
@@ -1670,7 +1663,7 @@
   const handleClearAll = () => {
     if (!window.confirm('¿Borrar todos los días marcados? No se puede deshacer.')) return;
     setRequestedDays(new Set()); setPlanA(new Set()); setPlanB(new Set());
-    setPlanC(new Set()); setExhaustedDays(new Set()); setHistory([]);
+    setPlanC(new Set()); setExhaustedDays(new Set()); setCustomConvDays(new Set()); setHistory([]);
   };
 
   const renderWishlist = (title, arr, isPA=false, isPB=false, isPC=false) => {
@@ -2497,10 +2490,15 @@
                     <button
                       onClick={() => setClickMode(clickMode === 'convivencia' ? 'pedir' : 'convivencia')}
                       className={`px-2 py-1 rounded-lg font-black flex items-center gap-1 border transition-all ${clickMode === 'convivencia' ? 'bg-purple-600 text-white border-purple-700 ring-2 ring-purple-300 animate-pulse' : 'bg-purple-50 text-purple-800 border-purple-300 hover:bg-purple-100'}`}>
-                      🤝 {clickMode === 'convivencia' ? 'Guardando fechas Convivencia...' : 'Cambiar fechas Convivencia'}
+                      🤝 {clickMode === 'convivencia' ? 'Guardando fechas Convivencia...' : (customConvDays.size > 0 ? `Cambiar Convivencia (${customConvDays.size}d)` : 'Asignar fechas Convivencia')}
                     </button>
                     {customConvDays.size > 0 && (
-                      <button onClick={() => setCustomConvDays(new Set())} className="text-[10px] text-purple-600 hover:underline font-bold" title="Restaurar al último finde de Octubre">Reset Conv.</button>
+                      <button
+                        onClick={() => { setCustomConvDays(new Set()); notify('🤝 Días de Convivencia de Transmisión dejados sin asignar.', 'info'); }}
+                        className="text-[10px] text-purple-600 hover:underline font-bold"
+                        title="Dejar sin asignar los días de la Convivencia de Transmisión">
+                        Reset Conv. (Sin asignar)
+                      </button>
                     )}
                     <button
                       onClick={() => setClickMode(clickMode === 'no_lectivo' ? 'pedir' : 'no_lectivo')}
@@ -2519,34 +2517,64 @@
                 <div className="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-8 gap-2">
                   {keyMilestones.map(m => (
                     <div key={m.id} className={`p-2 rounded-xl border flex flex-col justify-between transition-all ${
-                      m.allFree ? 'bg-emerald-50/70 border-emerald-300' : m.someFree ? 'bg-amber-50/70 border-amber-300' : 'bg-red-50/50 border-red-200'
+                      m.editable && m.dayDetails.length === 0
+                        ? 'bg-purple-50/40 border-purple-300 border-dashed'
+                        : m.allFree ? 'bg-emerald-50/70 border-emerald-300' : m.someFree ? 'bg-amber-50/70 border-amber-300' : 'bg-red-50/50 border-red-200'
                     }`}>
                       <div className="flex items-center justify-between gap-1 mb-1.5">
                         <span className="font-black text-[10px] md:text-[11px] text-slate-800 leading-tight">{m.icon} {m.title}</span>
                         {m.editable && (
-                          <button onClick={() => setClickMode(clickMode === 'convivencia' ? 'pedir' : 'convivencia')} className="text-[9px] bg-purple-200 text-purple-900 px-1 rounded font-bold hover:bg-purple-300" title="Editar días de Convivencia en el calendario">✏️</button>
+                          <div className="flex items-center gap-1">
+                            {m.dayDetails.length > 0 && (
+                              <button
+                                onClick={() => { setCustomConvDays(new Set()); notify('🤝 Días de Convivencia dejados sin asignar.', 'info'); }}
+                                className="text-[9px] bg-red-100 text-red-700 px-1 rounded font-bold hover:bg-red-200"
+                                title="Resetear / dejar sin asignar los días de Convivencia">
+                                🗑️
+                              </button>
+                            )}
+                            <button
+                              onClick={() => setClickMode(clickMode === 'convivencia' ? 'pedir' : 'convivencia')}
+                              className="text-[9px] bg-purple-200 text-purple-900 px-1 rounded font-bold hover:bg-purple-300"
+                              title="Asignar o editar manualmente los días (V, S y D) de Convivencia en el calendario">
+                              ✏️
+                            </button>
+                          </div>
                         )}
                       </div>
                       <div className="flex flex-col gap-1">
-                        {m.dayDetails.map(dd => (
-                          <div key={dd.key}
-                               onClick={() => setMobileMonth(dd.m)}
-                               className="flex items-center justify-between text-[9px] md:text-[10px] bg-white/90 px-1.5 py-0.5 rounded border border-slate-200/80 cursor-pointer hover:border-blue-400">
-                            <span className="font-bold text-slate-700">{dd.label}</span>
-                            <span className={`font-black px-1 rounded text-[8px] ${
-                              dd.status === 'LIB' ? 'bg-slate-800 text-white' :
-                              dd.status === 'VAC' ? 'bg-yellow-300 text-yellow-900' :
-                              dd.status === 'PEDIDO' ? 'bg-green-500 text-white' :
-                              dd.status === 'PLAN' ? 'bg-amber-200 text-amber-900' :
-                              'bg-red-100 text-red-700'
-                            }`}>
-                              {dd.status === 'LIB' ? '🟢 LIB' :
-                               dd.status === 'VAC' ? '🏖️ VAC' :
-                               dd.status === 'PEDIDO' ? '✅ PED' :
-                               dd.status === 'PLAN' ? '📌 PLAN' : '🔴 TRAB'}
+                        {m.editable && m.dayDetails.length === 0 ? (
+                          <div className="flex flex-col items-center justify-center text-center py-2 px-1 bg-white/80 rounded-lg border border-purple-200/80 gap-1.5">
+                            <span className="text-[9px] font-bold text-slate-500 leading-tight">
+                              Sin asignar<br/>(V, S y D Oct–Dic)
                             </span>
+                            <button
+                              onClick={() => { setMobileMonth(10); setClickMode('convivencia'); }}
+                              className="text-[9px] font-black bg-purple-600 hover:bg-purple-700 text-white px-2 py-0.5 rounded shadow-sm">
+                              ➕ Asignar V, S y D
+                            </button>
                           </div>
-                        ))}
+                        ) : (
+                          m.dayDetails.map(dd => (
+                            <div key={dd.key}
+                                 onClick={() => setMobileMonth(dd.m)}
+                                 className="flex items-center justify-between text-[9px] md:text-[10px] bg-white/90 px-1.5 py-0.5 rounded border border-slate-200/80 cursor-pointer hover:border-blue-400">
+                              <span className="font-bold text-slate-700">{dd.label}</span>
+                              <span className={`font-black px-1 rounded text-[8px] ${
+                                dd.status === 'LIB' ? 'bg-slate-800 text-white' :
+                                dd.status === 'VAC' ? 'bg-yellow-300 text-yellow-900' :
+                                dd.status === 'PEDIDO' ? 'bg-green-500 text-white' :
+                                dd.status === 'PLAN' ? 'bg-amber-200 text-amber-900' :
+                                'bg-red-100 text-red-700'
+                              }`}>
+                                {dd.status === 'LIB' ? '🟢 LIB' :
+                                 dd.status === 'VAC' ? '🏖️ VAC' :
+                                 dd.status === 'PEDIDO' ? '✅ PED' :
+                                 dd.status === 'PLAN' ? '📌 PLAN' : '🔴 TRAB'}
+                              </span>
+                            </div>
+                          ))
+                        )}
                       </div>
                     </div>
                   ))}
@@ -2572,12 +2600,27 @@
                   <span className="text-sm leading-none">🎒</span> Día No Lectivo ({nonSchoolDays.size})
                </button>
                <button onClick={()=>setClickMode(clickMode==='convivencia'?'pedir':'convivencia')} className={`flex-1 min-w-[95px] px-2 py-2 rounded-xl font-black text-[11px] flex flex-col justify-center items-center gap-0.5 transition-all ${clickMode==='convivencia' ? 'bg-purple-600 text-white shadow-md ring-2 ring-purple-300 scale-[1.02]' : 'bg-purple-50 text-purple-800 hover:bg-purple-100'}`}>
-                  <span className="text-sm leading-none">🤝</span> Fechas Conviv.
+                  <span className="text-sm leading-none">🤝</span> Fechas Conviv. {customConvDays.size > 0 ? `(${customConvDays.size})` : ''}
                </button>
                <button onClick={()=>setClickMode('agotar')} className={`flex-1 min-w-[80px] px-2 py-2 rounded-xl font-black text-[11px] flex flex-col justify-center items-center gap-0.5 transition-all ${clickMode==='agotar' ? 'bg-red-500 text-white shadow-md ring-2 ring-red-300 scale-[1.02]' : 'bg-slate-100 text-slate-600 hover:bg-red-50'}`}>
                   <XCircle size={15} /> Agotar
                </button>
             </div>
+
+            {clickMode === 'convivencia' && (
+              <div className="mb-3 bg-purple-900 text-purple-50 p-3 rounded-xl border-2 border-purple-400 shadow-md flex flex-wrap items-center justify-between gap-2 text-xs no-print">
+                <div>
+                  <strong className="text-white block">🤝 Asignar Convivencia de Transmisión ({selectedYear}):</strong>
+                  <span>Haz clic en el calendario sobre el <b>Viernes, Sábado y Domingo (V, S y D)</b> entre octubre y diciembre en que caiga tu convivencia este año ({customConvDays.size} día{customConvDays.size===1?'':'s'} marcado{customConvDays.size===1?'':'s'}).</span>
+                </div>
+                <div className="flex gap-2 shrink-0">
+                  {customConvDays.size > 0 && (
+                    <button onClick={() => setCustomConvDays(new Set())} className="bg-purple-700 hover:bg-purple-600 text-white font-bold px-2.5 py-1 rounded-lg border border-purple-400 text-[11px]">🗑️ Dejar sin asignar</button>
+                  )}
+                  <button onClick={() => setClickMode('pedir')} className="bg-white text-purple-950 font-black px-3 py-1 rounded-lg text-[11px]">✓ Listo</button>
+                </div>
+              </div>
+            )}
 
             {clickMode === 'no_lectivo' && (
               <div className="mb-3 bg-cyan-900 text-cyan-50 p-3 rounded-xl border-2 border-cyan-400 shadow-md flex flex-wrap items-center justify-between gap-2 text-xs no-print">
