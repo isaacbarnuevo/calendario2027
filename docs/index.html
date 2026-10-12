@@ -185,9 +185,9 @@
           const [customConvDays,  setCustomConvDays]= useState(() => loadSet('pln_conv_days'));
           const [showRadar,       setShowRadar]     = useState(() => loadVal('pln_radar', true));
 
-          const [groupLastYear,   setGroupLastYear] = useState(() => loadVal('pln_gly', loadVal('pln_groupLastYear', 4)));
-          const [subGroup5,       setSubGroup5]     = useState(() => loadVal('pln_sg5', loadVal('pln_subGroup5', 'S51')));
-          const [winVac,          setWinVac]        = useState(() => loadVal('pln_wv', loadVal('pln_winVac', 'W52')));
+          const [groupLastYear,   setGroupLastYear] = useState(() => loadVal('pln_gly_v2', 5));
+          const [subGroup5,       setSubGroup5]     = useState(() => loadVal('pln_sg5', loadVal('pln_subGroup5', 'S52')));
+          const [winVac,          setWinVac]        = useState(() => loadVal('pln_wv_v2', 'W11'));
           const [requestedDays,   setRequestedDays] = useState(() => loadSet('pln_req'));
   
           const [showConfig,      setShowConfig]    = useState(false);
@@ -250,9 +250,9 @@
           useEffect(() => localStorage.setItem('pln_mcred', JSON.stringify(manualCredit)), [manualCredit]);
           useEffect(() => localStorage.setItem('pln_mlv',   JSON.stringify(manualObligLV)),[manualObligLV]);
           useEffect(() => localStorage.setItem('pln_radar', JSON.stringify(showRadar)),    [showRadar]);
-          useEffect(() => localStorage.setItem('pln_gly',   JSON.stringify(groupLastYear)),[groupLastYear]);
+          useEffect(() => localStorage.setItem('pln_gly_v2',JSON.stringify(groupLastYear)),[groupLastYear]);
           useEffect(() => localStorage.setItem('pln_sg5',   JSON.stringify(subGroup5)),    [subGroup5]);
-          useEffect(() => localStorage.setItem('pln_wv',    JSON.stringify(winVac)),       [winVac]);
+          useEffect(() => localStorage.setItem('pln_wv_v2', JSON.stringify(winVac)),       [winVac]);
           useEffect(() => localStorage.setItem('pln_ad',    JSON.stringify(appDay)),       [appDay]);
           useEffect(() => localStorage.setItem('pln_at',    JSON.stringify(appTime)),      [appTime]);
           useEffect(() => localStorage.setItem('pln_shift', JSON.stringify(shiftPhase)),   [shiftPhase]);
@@ -538,7 +538,22 @@
 
   const diasArrasados = Math.round(maquinistasAhead * 11.5);
 
-  const groupCurrentYear = (groupLastYear % 5) + 1;
+  const getVacGroupForYear = (g2026, yr) => (((g2026 - 1 + (yr - 2026)) % 5) + 5) % 5 + 1;
+  const groupCurrentYear = getVacGroupForYear(groupLastYear, selectedYear);
+
+  useEffect(() => {
+    const validWinByGroup = {
+      1: ['W11', 'W12'],
+      2: ['W21', 'W22', 'W23', 'W24'],
+      3: ['W31', 'W32'],
+      4: ['W21', 'W22', 'W23', 'W24'],
+      5: ['W52', 'W51']
+    };
+    const allowed = validWinByGroup[groupCurrentYear] || ['W11'];
+    if (!allowed.includes(winVac)) {
+      setWinVac(allowed[0]);
+    }
+  }, [groupCurrentYear]);
 
   const sumVac = useMemo(() => {
     if (groupCurrentYear === 1) return 'S1';
@@ -2148,18 +2163,21 @@
                   {[1,2,3,4].map(g=><option key={g} value={g}>Grupo {g} (Patrón 28 días)</option>)}
                 </select>
 
-                <label className="block text-[10px] md:text-[11px] font-bold text-slate-500 mb-1">Grupo Verano año anterior:</label>
+                <label className="block text-[10px] md:text-[11px] font-bold text-slate-500 mb-1">Tu Grupo Oficial en 2026 (base rotativa):</label>
                 <select value={groupLastYear} onChange={e=>setGroupLastYear(parseInt(e.target.value))}
                         className="w-full mb-2 p-1.5 md:p-2 text-xs border rounded-lg bg-slate-50 font-bold text-slate-700 border-slate-200">
-                  <option value={1}>Grupo 1 (Jun/Jul)</option>
-                  <option value={2}>Grupo 2 (Agosto)</option>
-                  <option value={3}>Grupo 3 (Septiembre)</option>
-                  <option value={4}>Grupo 4 (Jul/Ago)</option>
-                  <option value={5}>Grupo 5 (A elegir)</option>
+                  <option value={1}>2026: Grupo 1 (Jun/Jul) → 2027: Gr. 2</option>
+                  <option value={2}>2026: Grupo 2 (Agosto) → 2027: Gr. 3</option>
+                  <option value={3}>2026: Grupo 3 (Septiembre) → 2027: Gr. 4</option>
+                  <option value={4}>2026: Grupo 4 (Jul/Ago) → 2027: Gr. 5</option>
+                  <option value={5}>2026: Grupo 5 (A elegir) → 2027: Gr. 1</option>
                 </select>
 
                 <div className="bg-yellow-50 p-2 md:p-3 rounded-lg border border-yellow-200 mb-2">
-                  <span className="text-[9px] md:text-[10px] font-bold text-yellow-800 uppercase block mb-0.5">Te toca en {selectedYear}:</span>
+                  <div className="flex items-center justify-between mb-0.5">
+                    <span className="text-[9px] md:text-[10px] font-bold text-yellow-800 uppercase">Te toca por rotación en {selectedYear}:</span>
+                    <span className="text-[9px] font-black bg-yellow-200 text-yellow-900 px-1.5 py-0.5 rounded">Grupo {groupCurrentYear}</span>
+                  </div>
                   <div className="font-black text-yellow-900 text-xs md:text-sm leading-tight">{sumVacName}</div>
                   {groupCurrentYear===5 && (
                     <select value={subGroup5} onChange={e=>setSubGroup5(e.target.value)}
@@ -2169,21 +2187,32 @@
                       <option value="S53">S5.3: 1/Sep - 30/Sep</option>
                     </select>
                   )}
+                  <div className="mt-2 pt-1.5 border-t border-yellow-200/80 flex gap-1 overflow-x-auto">
+                    {[2027,2028,2029,2030,2031].map(yr => {
+                      const vg = getVacGroupForYear(groupLastYear, yr);
+                      return (
+                        <button key={yr} onClick={() => handleYearChange(yr)}
+                          className={`flex-1 text-center py-0.5 px-1 rounded text-[9px] font-black border transition-all ${selectedYear === yr ? 'bg-yellow-500 text-yellow-950 border-yellow-600' : 'bg-white text-yellow-900 border-yellow-300 hover:bg-yellow-100'}`}>
+                          {yr.toString().slice(2)}: G{vg}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
 
-                <label className="block text-[10px] md:text-[11px] font-bold text-slate-500 mb-1">Inviernos:</label>
+                <label className="block text-[10px] md:text-[11px] font-bold text-slate-500 mb-1">Invierno / PFA ({selectedYear}):</label>
                 <select value={winVac} onChange={e=>setWinVac(e.target.value)}
                         className="w-full p-1.5 md:p-2 text-xs border rounded-lg bg-yellow-50 font-bold text-yellow-900 border-yellow-200">
                   {VACATIONS.winter.map(v=><option key={v.id} value={v.id}>{v.name}</option>)}
                 </select>
 
                 <div className="mt-3 bg-slate-50 p-2 md:p-3 rounded-lg border border-slate-200 shadow-inner">
-                  <p className="text-[10px] text-slate-500 mb-2 font-bold text-center">¿Fraccionas vacaciones (quincenas / días sueltos)?</p>
+                  <p className="text-[10px] text-slate-500 mb-2 font-bold text-center">¿Cambias vacaciones con un compañero o por quincenas?</p>
                   <button onClick={() => setClickMode(clickMode === 'vacaciones' ? 'pedir' : 'vacaciones')} 
                           className={`w-full py-1.5 flex items-center justify-center gap-2 rounded-lg font-black text-xs transition-all shadow-sm ${clickMode === 'vacaciones' ? 'bg-yellow-400 text-yellow-900 border-2 border-yellow-500 scale-105' : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-300'}`}>
                     <Edit3 size={14}/> {clickMode==='vacaciones'?'Terminar Edición (Guardar)':'Editar VAC en el Calendario'}
                   </button>
-                  {clickMode==='vacaciones' && <p className="text-[9px] md:text-[10px] text-yellow-700 font-bold mt-2 text-center animate-pulse">Haz clic en los días del calendario para sumar o restar VAC.</p>}
+                  {clickMode==='vacaciones' && <p className="text-[9px] md:text-[10px] text-yellow-700 font-bold mt-2 text-center animate-pulse">Haz clic en los días del calendario para poner o quitar tus nuevas VAC cambiadas.</p>}
                 </div>
               </div>
 
