@@ -2086,7 +2086,7 @@
 
         <div className="flex flex-col xl:flex-row flex-1">
 
-          <div className="xl:w-96 bg-slate-50 border-r border-slate-200 p-2 md:p-6 flex flex-col gap-3 md:gap-5 overflow-y-auto xl:max-h-[calc(100vh-100px)]">
+          <div className="xl:w-96 shrink-0 bg-slate-50 border-r border-slate-200 p-2 md:p-6 flex flex-col gap-3 md:gap-5">
 
             <button onClick={() => setShowConfig(!showConfig)} 
                     className="xl:hidden bg-slate-800 text-white p-3 rounded-xl font-bold flex justify-between items-center shadow-md active:scale-[0.98] transition-all">
@@ -2094,7 +2094,7 @@
               {showConfig ? <ChevronUp size={20}/> : <ChevronDown size={20}/>}
             </button>
 
-            <div className={`${showConfig ? 'flex' : 'hidden'} xl:flex flex-col gap-3 md:gap-5`}>
+            <div className={`${showConfig ? 'flex' : 'hidden'} xl:flex flex-col gap-3 md:gap-5 shrink-0`}>
               <div className="bg-white p-3 md:p-4 rounded-xl border border-slate-200 shadow-sm">
                 <div className="flex items-center justify-between mb-2">
                   <h3 className="font-black text-slate-800 uppercase text-xs flex items-center gap-2">
@@ -2330,7 +2330,7 @@
               </div>
             </div>
 
-            <div className="bg-white p-3 md:p-4 rounded-xl border border-slate-200 shadow-sm">
+            <div className="bg-white p-3 md:p-4 rounded-xl border border-slate-200 shadow-sm shrink-0">
               <h3 className="font-black mb-2 md:mb-3 text-slate-800 uppercase text-[10px] md:text-xs flex items-center gap-2">
                 <LayoutGrid size={14}/> 4. Estado Petición
               </h3>
@@ -2355,7 +2355,7 @@
               )}
             </div>
 
-            <div className="bg-amber-50 p-3 md:p-4 rounded-xl border border-amber-200 shadow-sm relative overflow-hidden">
+            <div className="bg-amber-50 p-3 md:p-4 rounded-xl border border-amber-200 shadow-sm relative shrink-0">
                <h3 className="font-black mb-2 md:mb-3 text-amber-900 uppercase text-[10px] md:text-xs flex items-center gap-2">
                  <CalendarCheck size={14}/> 5. Asistente Cronológico ({selectedYear})
                </h3>
@@ -2406,7 +2406,7 @@
                </button>
             </div>
 
-            <div className="bg-emerald-50 p-3 md:p-4 rounded-xl border-2 border-emerald-300 shadow-md relative overflow-hidden">
+            <div className="bg-emerald-50 p-3 md:p-4 rounded-xl border-2 border-emerald-300 shadow-md relative shrink-0">
               <div className="absolute top-0 right-0 w-16 h-16 md:w-20 md:h-20 bg-emerald-200 rounded-bl-full -z-10 opacity-50"></div>
               <div className="flex justify-between items-center mb-2">
                 <h3 className="font-black text-emerald-900 uppercase text-[10px] md:text-xs flex items-center gap-2">
