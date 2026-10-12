@@ -135,7 +135,67 @@
             return new Date(year, month - 1, day);
         }
 
-        const loadSet = k => { try { const s = localStorage.getItem(k); return s ? new Set(JSON.parse(s)) : new Set(); } catch { return new Set(); } };
+        // Calendario Escolar Oficial Comunidad de Madrid (Orden 2034/2026 para 2026-2027 y dinámico para otros años)
+        function getDefaultSchoolDaysMadrid(year) {
+            const s = new Set();
+            // 1. Enero: Vacaciones de Navidad hasta el 7 de enero inclusive; si el 7 cae en Jueves o Viernes (como en 2027: 7 Jue y 8 Vie no lectivos), hasta el domingo 10 (vuelta al cole lunes 11 de enero)
+            const jan7Dow = new Date(year, 0, 7).getDay(); // 0=Dom..6=Sab
+            let janEnd = 7;
+            if (jan7Dow === 4) janEnd = 10;      // 2027: Jue 7 y Vie 8 no lectivos + Sab 9 y Dom 10 -> vuelven Lun 11 Ene
+            else if (jan7Dow === 5) janEnd = 9;  // Vie 7 + Sab 8 y Dom 9 -> vuelven Lun 10 Ene
+            else if (jan7Dow === 6) janEnd = 8;
+            for (let d = 1; d <= janEnd; d++) s.add(`1-${d}`);
+
+            // 2. Febrero (Días no lectivos Carnaval / Semana Blanca Madrid: en 2027 son 12 y 15 de febrero según Orden 2034/2026)
+            const easter = getEasterSunday(year);
+            const addD = (dt, n) => new Date(dt.getTime() + n * 86400000);
+            const fk = dt => `${dt.getMonth() + 1}-${dt.getDate()}`;
+            if (year === 2027) {
+                s.add('2-12');
+                s.add('2-15');
+            } else {
+                // Viernes y Lunes de finales de febrero / Carnaval
+                s.add(fk(addD(easter, -37)));
+                s.add(fk(addD(easter, -34)));
+            }
+
+            // 3. Semana Santa Escolar Madrid: desde el Viernes previo a Semana Santa (19 Mar en 2027) hasta el Lunes de Pascua inclusive (29 Mar en 2027)
+            for (let off = -9; off <= 1; off++) {
+                s.add(fk(addD(easter, off)));
+            }
+
+            // 4. Puente de Mayo (si 2 de mayo cae en domingo, el lunes 3 de mayo es festivo/no lectivo)
+            if (new Date(year, 4, 2).getDay() === 0) s.add('5-3');
+
+            // 5. Junio: Fin de clases hacia el viernes ~18-21 de junio (en 2027 último día lectivo viernes 18 Jun -> sin cole del 21 al 30 Jun)
+            const junStart = year === 2027 ? 19 : 22;
+            for (let d = junStart; d <= 30; d++) s.add(`6-${d}`);
+
+            // 6. Septiembre: Días sin cole antes del inicio de curso (~8 de septiembre)
+            for (let d = 1; d <= 7; d++) s.add(`9-${d}`);
+
+            // 7. Puentes 1er Trimestre (Pilar, Todos los Santos, Almudena, Constitución) y Navidad (23 al 31 Dic)
+            if (new Date(year, 9, 12).getDay() === 2) s.add('10-11'); // Lunes puente Pilar (en 2027 el 12 Oct es Martes)
+            if (new Date(year, 9, 12).getDay() === 4) s.add('10-13');
+            s.add('11-9'); // Almudena
+            if (new Date(year, 11, 6).getDay() === 1 && new Date(year, 11, 8).getDay() === 3) s.add('12-7'); // Martes 7 Dic puente en 2027
+            for (let d = 23; d <= 31; d++) s.add(`12-${d}`);
+
+            return s;
+        }
+
+        const loadSet = (k, fallbackSet = null) => {
+            try {
+                const s = localStorage.getItem(k);
+                if (s !== null) {
+                    const arr = JSON.parse(s);
+                    if (Array.isArray(arr) && arr.length > 0) return new Set(arr);
+                }
+                return fallbackSet ? new Set(fallbackSet) : new Set();
+            } catch {
+                return fallbackSet ? new Set(fallbackSet) : new Set();
+            }
+        };
         const saveSet = (k, s) => { try { localStorage.setItem(k, JSON.stringify([...s])); } catch {} };
         const loadVal = (k, def) => { try { const v = localStorage.getItem(k); return v !== null ? JSON.parse(v) : def; } catch { return def; } };
     </script>
@@ -181,7 +241,7 @@
           const [janSyncDays,     setJanSyncDays]   = useState(new Set());
           const [manualCredit,    setManualCredit]  = useState(() => loadVal('pln_mcred', 9));
           const [manualObligLV,   setManualObligLV] = useState(() => loadVal('pln_mlv', null));
-          const [nonSchoolDays,   setNonSchoolDays] = useState(() => loadSet('pln_noschool'));
+          const [nonSchoolDays,   setNonSchoolDays] = useState(() => loadSet('pln_noschool_v2', getDefaultSchoolDaysMadrid(2027)));
           const [customConvDays,  setCustomConvDays]= useState(() => loadSet('pln_conv_days'));
           const [showRadar,       setShowRadar]     = useState(() => loadVal('pln_radar', true));
 
@@ -235,7 +295,7 @@
           useEffect(() => saveSet('pln_planC',     planC),         [planC]);
           useEffect(() => saveSet('pln_exhausted', exhaustedDays), [exhaustedDays]);
           useEffect(() => saveSet('pln_customOff', customOffDays), [customOffDays]);
-          useEffect(() => saveSet('pln_noschool',  nonSchoolDays), [nonSchoolDays]);
+          useEffect(() => saveSet('pln_noschool_v2', nonSchoolDays), [nonSchoolDays]);
           useEffect(() => saveSet('pln_conv_days', customConvDays),[customConvDays]);
           useEffect(() => localStorage.setItem('pln_year',  JSON.stringify(selectedYear)), [selectedYear]);
           useEffect(() => localStorage.setItem('pln_turn',  JSON.stringify(turn)),         [turn]);
@@ -403,6 +463,7 @@
     if (autoRotateTurn && newYear >= 2027) {
       setTurn(getRotatedTurnForYear(initialTurn2027, newYear));
     }
+    setNonSchoolDays(getDefaultSchoolDaysMadrid(newYear));
     setRequestedDays(new Set());
     setPlanA(new Set());
     setPlanB(new Set());
@@ -935,13 +996,23 @@
       '12-6':'Constitución', '12-8':'Inmaculada', '12-24':'Nochebuena',
       '12-25':'Navidad', '12-31':'Nochevieja'
     };
+    if (selectedYear === 2027) {
+      map['1-7']  = 'No Lectivo';
+      map['1-8']  = 'No Lectivo';
+      map['1-11'] = '🏫 Vuelta Cole';
+      map['2-12'] = 'No Lectivo';
+      map['2-15'] = 'No Lectivo';
+      map['3-19'] = 'San José / Sin Cole';
+      map['5-3']  = 'Pte. Mayo';
+      map['6-18'] = '🏫 Fin Clases';
+    }
     const easter = getEasterSunday(selectedYear);
     const addD = (d, n) => new Date(d.getTime() + n * 86400000);
     const fk = d => `${d.getMonth()+1}-${d.getDate()}`;
     map[fk(addD(easter, -3))] = 'J. Santo';
     map[fk(addD(easter, -2))] = 'V. Santo';
     map[fk(easter)]           = 'D. Pascua';
-    map[fk(addD(easter, 1))]  = 'L. Pascua';
+    map[fk(addD(easter, 1))]  = 'L. Pascua (Sin cole)';
     return map;
   }, [selectedYear]);
 
@@ -949,6 +1020,7 @@
     const easter = getEasterSunday(selectedYear);
     const addD = (d, n) => new Date(d.getTime() + n * 86400000);
     const fk = d => `${d.getMonth()+1}-${d.getDate()}`;
+    const vDolores = fk(addD(easter, -9));
     const jSanto = fk(addD(easter, -3));
     const vSanto = fk(addD(easter, -2));
     const dPascua = fk(easter);
@@ -960,14 +1032,14 @@
     });
 
     const items = [
-      { id: 'ene1_6', title: 'Año Nuevo y Reyes', icon: '👑', keys: ['1-1', '1-6'] },
-      { id: 'ssanta', title: 'Semana Santa', icon: '🕊️', keys: [jSanto, vSanto, dPascua, lPascua] },
-      { id: 'mayo', title: 'Puente de Mayo', icon: '🌺', keys: ['5-1', '5-2'] },
-      { id: 'ago15', title: '15 de Agosto', icon: '☀️', keys: ['8-15'] },
-      { id: 'oct_nov', title: 'Pilar / T. Santos', icon: '🍂', keys: ['10-12', '11-1'] },
+      { id: 'ene1_6', title: selectedYear === 2027 ? 'Enero (Cole vuelve L11)' : 'Año Nuevo y Reyes', icon: '👑', keys: selectedYear === 2027 ? ['1-1', '1-6', '1-7', '1-8'] : ['1-1', '1-6'] },
+      { id: 'feb_cole', title: 'No Lectivos Feb / Mayo', icon: '🎒', keys: selectedYear === 2027 ? ['2-12', '2-15', '5-1', '5-2', '5-3'] : ['5-1', '5-2'] },
+      { id: 'ssanta', title: 'Semana Santa (19-29M)', icon: '🕊️', keys: [vDolores, jSanto, vSanto, dPascua, lPascua] },
+      { id: 'ago15', title: 'Fin Cole (18J) / 15 Ago', icon: '☀️', keys: selectedYear === 2027 ? ['6-21', '6-22', '8-15'] : ['8-15'] },
+      { id: 'oct_nov', title: 'Pilar / Santos / Almud.', icon: '🍂', keys: selectedYear === 2027 ? ['10-11', '10-12', '11-1', '11-9'] : ['10-12', '11-1'] },
       { id: 'conv', title: 'Convivencia Transm.', icon: '🤝', keys: convArr, editable: true },
       { id: 'const', title: 'Puente Constitución', icon: '🏛️', keys: ['12-6', '12-7', '12-8'] },
-      { id: 'nav', title: 'Navidad y Fin de Año', icon: '🎄', keys: ['12-24', '12-25', '12-31'] }
+      { id: 'nav', title: 'Navidad (Sin cole 23D)', icon: '🎄', keys: ['12-23', '12-24', '12-25', '12-31'] }
     ];
 
     const shortDow = ['L','M','X','J','V','S','D'];
@@ -1551,6 +1623,11 @@
               🎉 {holidayName}
             </div>
           )}
+          {!isOff&&!isVac&&!isReq&&!isExhausted&&monthData.id===1&&isNoLectivo && (
+            <div className="mt-auto text-center font-bold rounded-sm text-[8px] md:text-[9px] p-0.5 relative z-10 truncate bg-cyan-100 text-cyan-900 border border-cyan-300">
+              🎒 Sin Cole
+            </div>
+          )}
           {!isOff&&!isVac&&!isReq&&!isExhausted&&monthData.id!==1 && (
             <div className={`mt-auto text-center font-bold rounded-sm text-[8px] md:text-[9px] p-0.5 relative z-10 truncate ${
               quota===0
@@ -1573,10 +1650,11 @@
 
     return (
       <div key={monthData.id}
-           className={`bg-white border border-slate-300 rounded-xl overflow-hidden shadow-sm flex flex-col ${monthData.id===1 && clickMode!=='sync_enero' && clickMode!=='editar_lib' ? 'opacity-85' : ''} ${monthData.id===1 && clickMode==='sync_enero' ? 'ring-4 ring-emerald-500 shadow-lg' : ''}`}>
-        <div className={`text-white font-black text-center uppercase tracking-widest py-1 text-[10px] md:text-xs flex items-center justify-center gap-1 ${monthData.id===1 ? (clickMode==='sync_enero'?'bg-emerald-700':'bg-slate-600') : 'bg-slate-800'}`}>
+           className={`bg-white border border-slate-300 rounded-xl overflow-hidden shadow-sm flex flex-col ${monthData.id===1 && clickMode!=='sync_enero' && clickMode!=='editar_lib' && clickMode!=='no_lectivo' ? 'opacity-85' : ''} ${monthData.id===1 && clickMode==='sync_enero' ? 'ring-4 ring-emerald-500 shadow-lg' : ''} ${clickMode==='no_lectivo' ? 'ring-2 ring-cyan-400' : ''}`}>
+        <div className={`text-white font-black text-center uppercase tracking-widest py-1 text-[10px] md:text-xs flex items-center justify-center gap-1 ${monthData.id===1 ? (clickMode==='sync_enero'?'bg-emerald-700':clickMode==='no_lectivo'?'bg-cyan-700':'bg-slate-600') : (clickMode==='no_lectivo'?'bg-cyan-800':'bg-slate-800')}`}>
           {monthData.name} <span className="opacity-70 font-medium ml-1">{selectedYear}</span>
           {monthData.id===1 && clickMode==='sync_enero' && <span className="ml-1 bg-white text-emerald-800 text-[8px] font-black px-1.5 rounded-full animate-pulse">HAZ CLIC EN TUS LIB</span>}
+          {monthData.id===1 && selectedYear===2027 && <span className="ml-1 bg-cyan-500/90 text-white text-[8px] font-black px-1.5 rounded-full">🎒 Sin cole 1-10 Ene (Vuelven L11)</span>}
           {monthReqCount[monthData.id]>0 && <span className="ml-1 bg-green-500 text-white text-[9px] font-black px-1.5 rounded-full">{monthReqCount[monthData.id]}</span>}
         </div>
         <div className="grid grid-cols-7 bg-slate-100 text-slate-500 border-b border-slate-300">
@@ -2427,7 +2505,13 @@
                     <button
                       onClick={() => setClickMode(clickMode === 'no_lectivo' ? 'pedir' : 'no_lectivo')}
                       className={`px-2 py-1 rounded-lg font-black flex items-center gap-1 border transition-all ${clickMode === 'no_lectivo' ? 'bg-cyan-600 text-white border-cyan-700 ring-2 ring-cyan-300 animate-pulse' : 'bg-cyan-50 text-cyan-800 border-cyan-300 hover:bg-cyan-100'}`}>
-                      🎒 {clickMode === 'no_lectivo' ? 'Marcando No Lectivos...' : `Marcar Días No Lectivos (${nonSchoolDays.size})`}
+                      🎒 {clickMode === 'no_lectivo' ? 'Terminar edición No Lectivos' : `Días No Lectivos Madrid (${nonSchoolDays.size})`}
+                    </button>
+                    <button
+                      onClick={() => { setNonSchoolDays(getDefaultSchoolDaysMadrid(selectedYear)); notify(`🏫 Calendario Escolar Oficial Comunidad de Madrid (${selectedYear}) restaurado.`, 'success'); }}
+                      className="text-[10px] text-cyan-700 hover:underline font-bold"
+                      title="Restaurar los días no lectivos oficiales de la Comunidad de Madrid (Orden 2034/2026)">
+                      Reset Cole Madrid
                     </button>
                   </div>
                 </div>
@@ -2484,16 +2568,29 @@
                <button onClick={()=>setClickMode('plan_c')} className={`flex-1 min-w-[80px] px-2 py-2 rounded-xl font-black text-[11px] flex flex-col justify-center items-center gap-0.5 transition-all ${clickMode==='plan_c' ? 'bg-slate-400 text-slate-900 shadow-md ring-2 ring-slate-300 scale-[1.02]' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
                   <Star size={15} /> Plan C
                </button>
-               <button onClick={()=>setClickMode('no_lectivo')} className={`flex-1 min-w-[95px] px-2 py-2 rounded-xl font-black text-[11px] flex flex-col justify-center items-center gap-0.5 transition-all ${clickMode==='no_lectivo' ? 'bg-cyan-600 text-white shadow-md ring-2 ring-cyan-300 scale-[1.02]' : 'bg-cyan-50 text-cyan-800 hover:bg-cyan-100'}`}>
-                  <span className="text-sm leading-none">🎒</span> Día No Lectivo
+               <button onClick={()=>setClickMode(clickMode==='no_lectivo'?'pedir':'no_lectivo')} className={`flex-1 min-w-[95px] px-2 py-2 rounded-xl font-black text-[11px] flex flex-col justify-center items-center gap-0.5 transition-all ${clickMode==='no_lectivo' ? 'bg-cyan-600 text-white shadow-md ring-2 ring-cyan-300 scale-[1.02]' : 'bg-cyan-50 text-cyan-800 hover:bg-cyan-100'}`}>
+                  <span className="text-sm leading-none">🎒</span> Día No Lectivo ({nonSchoolDays.size})
                </button>
-               <button onClick={()=>setClickMode('convivencia')} className={`flex-1 min-w-[95px] px-2 py-2 rounded-xl font-black text-[11px] flex flex-col justify-center items-center gap-0.5 transition-all ${clickMode==='convivencia' ? 'bg-purple-600 text-white shadow-md ring-2 ring-purple-300 scale-[1.02]' : 'bg-purple-50 text-purple-800 hover:bg-purple-100'}`}>
+               <button onClick={()=>setClickMode(clickMode==='convivencia'?'pedir':'convivencia')} className={`flex-1 min-w-[95px] px-2 py-2 rounded-xl font-black text-[11px] flex flex-col justify-center items-center gap-0.5 transition-all ${clickMode==='convivencia' ? 'bg-purple-600 text-white shadow-md ring-2 ring-purple-300 scale-[1.02]' : 'bg-purple-50 text-purple-800 hover:bg-purple-100'}`}>
                   <span className="text-sm leading-none">🤝</span> Fechas Conviv.
                </button>
                <button onClick={()=>setClickMode('agotar')} className={`flex-1 min-w-[80px] px-2 py-2 rounded-xl font-black text-[11px] flex flex-col justify-center items-center gap-0.5 transition-all ${clickMode==='agotar' ? 'bg-red-500 text-white shadow-md ring-2 ring-red-300 scale-[1.02]' : 'bg-slate-100 text-slate-600 hover:bg-red-50'}`}>
                   <XCircle size={15} /> Agotar
                </button>
             </div>
+
+            {clickMode === 'no_lectivo' && (
+              <div className="mb-3 bg-cyan-900 text-cyan-50 p-3 rounded-xl border-2 border-cyan-400 shadow-md flex flex-wrap items-center justify-between gap-2 text-xs no-print">
+                <div>
+                  <strong className="text-white block">🎒 Calendario Escolar Comunidad de Madrid (Orden 2034/2026) pre-cargado:</strong>
+                  <span>• <b>Enero:</b> Sin cole del <b>1 al 10 de enero</b> (7 y 8 Ene no lectivos · vuelven el <b>Lunes 11 Ene</b>) · <b>Febrero:</b> <b>12 y 15 Feb</b> · <b>Semana Santa:</b> <b>19 al 29 Mar</b> · <b>Verano:</b> desde el <b>21 Jun</b> (último día clase 18 Jun). Haz clic en cualquier día para personalizarlo.</span>
+                </div>
+                <div className="flex gap-2 shrink-0">
+                  <button onClick={() => setNonSchoolDays(getDefaultSchoolDaysMadrid(selectedYear))} className="bg-cyan-700 hover:bg-cyan-600 text-white font-bold px-2.5 py-1 rounded-lg border border-cyan-400 text-[11px]">🔄 Oficial Madrid</button>
+                  <button onClick={() => setClickMode('pedir')} className="bg-white text-cyan-950 font-black px-3 py-1 rounded-lg text-[11px]">✓ Volver a Pedir Créditos</button>
+                </div>
+              </div>
+            )}
 
             <div className="w-full bg-slate-50 p-2 md:p-2.5 mb-3 md:mb-4 flex flex-wrap gap-x-3 gap-y-1 rounded-lg text-[9px] md:text-[11px] font-bold text-slate-600 border border-slate-200 justify-center items-center">
               <div className="flex items-center gap-1"><div className="w-2.5 h-2.5 rounded bg-slate-800" />LIB (Descanso)</div>
