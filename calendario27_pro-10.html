@@ -150,6 +150,8 @@
           const [autoRotateTurn,  setAutoRotateTurn]= useState(() => loadVal('pln_autorot', true));
           const [showCalc2026Modal, setShowCalc2026Modal] = useState(false);
           const [worked2026Input, setWorked2026Input] = useState(() => loadVal('pln_w2026', 225));
+          const [vac2026Input,    setVac2026Input]    = useState(() => loadVal('pln_vac2026', 37)); // 36 vac + 1 RM ya dado
+          const [ics2026Stats,    setIcs2026Stats]    = useState(() => loadVal('pln_ics2026', null));
           const [rmOutside2026,   setRmOutside2026] = useState(() => loadVal('pln_rm2026', false));
           const [showPersonalBridges, setShowPersonalBridges] = useState(() => loadVal('pln_pbridge', true));
 
@@ -710,6 +712,107 @@
       } catch (err) {
         console.error(err);
         showError('Error al leer el archivo .ics');
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  };
+
+  const handleICS2026Upload = (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const rawText = ev.target.result || '';
+        // Unfold multi-line ICS properties per RFC 5545
+        const text = rawText.replace(/\r?\n[ \t]/g, '');
+        const events = text.split('BEGIN:VEVENT').slice(1);
+        const libroDates2026 = new Set();
+        const vacDates2026   = new Set();
+        const papDates2026   = new Set();
+        let ignoredEvents2026 = 0;
+
+        const parseICSDate = (str) => {
+          const m = str.match(/(\d{4})(\d{2})(\d{2})/);
+          if (!m) return null;
+          return new Date(parseInt(m[1],10), parseInt(m[2],10)-1, parseInt(m[3],10));
+        };
+
+        events.forEach(block => {
+          const dtStartMatch = block.match(/DTSTART[^:]*:([^\r\n]+)/i);
+          const dtEndMatch   = block.match(/DTEND[^:]*:([^\r\n]+)/i);
+          const sumMatch     = block.match(/SUMMARY[^:]*:([^\r\n]+)/i);
+          if (!dtStartMatch) return;
+
+          const startD = parseICSDate(dtStartMatch[1]);
+          if (!startD) return;
+          let endD = dtEndMatch ? parseICSDate(dtEndMatch[1]) : new Date(startD);
+          const isDateOnly = dtStartMatch[0].toUpperCase().includes('VALUE=DATE') || !dtStartMatch[1].includes('T');
+          if (endD && isDateOnly && endD > startD) {
+            endD = new Date(endD.getTime() - 86400000);
+          }
+          if (!endD || endD < startD) endD = new Date(startD);
+
+          const summary = (sumMatch ? sumMatch[1] : '').trim().toUpperCase();
+          // Detectar exclusivamente días de descanso ("LIBRO", "LIBRE", "LIB", "DESCANSO") ignorando citas médicas, etc.
+          const isLibro = /\bLIBRO\b|\bLIBRE\b|\bLIB\b|\bDESCANSO\b|\bFRANCO\b/.test(summary);
+          const isVac   = /\bVACACIONES\b|\bVAC\b/.test(summary);
+          const isPap   = /\bPAP\b/.test(summary);
+
+          let touched2026 = false;
+          for (let cur = new Date(startD); cur <= endD; cur = new Date(cur.getTime() + 86400000)) {
+            if (cur.getFullYear() === 2026) {
+              touched2026 = true;
+              const k = `${cur.getMonth()+1}-${cur.getDate()}`;
+              if (isLibro) libroDates2026.add(k);
+              else if (isVac) vacDates2026.add(k);
+              else if (isPap) papDates2026.add(k);
+            }
+          }
+          if (touched2026 && !isLibro && !isVac && !isPap) {
+            ignoredEvents2026++;
+          }
+        });
+
+        if (libroDates2026.size === 0) {
+          showError('No se encontraron eventos con la palabra "LIBRO" en 2026 dentro de ese archivo .ics.');
+          return;
+        }
+
+        // Desglose por mes en 2026
+        const byMonth = {};
+        for (let m = 1; m <= 12; m++) byMonth[m] = 0;
+        libroDates2026.forEach(k => {
+          const m = parseInt(k.split('-')[0], 10);
+          if (byMonth[m] !== undefined) byMonth[m]++;
+        });
+
+        const detectedVac = vacDates2026.size > 0 ? vacDates2026.size : vac2026Input;
+        if (vacDates2026.size > 0) setVac2026Input(vacDates2026.size);
+
+        // No duplicar si algún día de vacaciones también tenía puesto LIBRO
+        let overlapVacLibro = 0;
+        vacDates2026.forEach(k => { if (libroDates2026.has(k)) overlapVacLibro++; });
+
+        const netVac = vacDates2026.size > 0 ? (vacDates2026.size - overlapVacLibro) : vac2026Input;
+        const worked2026 = Math.max(0, 365 - libroDates2026.size - netVac - papDates2026.size);
+
+        const summaryObj = {
+          libroCount: libroDates2026.size,
+          vacDetected: vacDates2026.size,
+          papDetected: papDates2026.size,
+          ignoredCount: ignoredEvents2026,
+          byMonth,
+          worked2026
+        };
+        setIcs2026Stats(summaryObj);
+        setWorked2026Input(worked2026);
+        localStorage.setItem('pln_ics2026', JSON.stringify(summaryObj));
+        notify(`✅ 2026 analizado: ${libroDates2026.size} días "LIBRO" contados (${ignoredEvents2026} citas/otros ignorados).`, 'success');
+      } catch (err) {
+        console.error(err);
+        showError('Error al analizar el archivo .ics de 2026.');
       }
     };
     reader.readAsText(file);
@@ -1521,8 +1624,55 @@
               <div className="bg-amber-50 p-3.5 rounded-xl border border-amber-200">
                 <h4 className="font-black text-amber-900 uppercase text-xs mb-1">2️⃣ Regularización a año vencido de 2026 (Sistema 7,5h = 216 días)</h4>
                 <p className="text-[11px] text-amber-800 mb-2">
-                  Según la <b>Agenda SCMM 2026 (pág. 6 y 42)</b>, el cómputo de 2026 es de <b>216 días (1.620 h)</b> —o <b>215 días</b> con RM fuera de jornada— y se liquida a año vencido en el listado del <b>15 de enero</b>:
+                  Según la <b>Agenda SCMM 2026 (pág. 6 y 42)</b>, el cómputo de 2026 es de <b>216 días (1.620 h)</b> —o <b>215 días</b> con RM fuera de jornada— y se liquida a año vencido en el listado del <b>15 de enero</b>.
                 </p>
+
+                {/* Subir Google Calendar .ics de 2026 para contar automáticamente los días que ponen LIBRO */}
+                <div className="bg-white p-2.5 rounded-lg border border-amber-300 mb-2.5">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="text-[11px] text-slate-700">
+                      <strong className="text-amber-900 block">📅 ¿Tienes tus descansos de 2026 en Google Calendar?</strong>
+                      <span>Sube tu archivo <code>.ics</code> y contará solo los días que ponen <b>"LIBRO"</b> (ignorando citas médicas y otros eventos).</span>
+                    </div>
+                    <label className="bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs px-3 py-1.5 rounded-lg cursor-pointer shadow flex items-center gap-1 shrink-0">
+                      📂 Subir .ics 2026
+                      <input type="file" accept=".ics,text/calendar" onChange={handleICS2026Upload} className="hidden" />
+                    </label>
+                  </div>
+
+                  {ics2026Stats && (
+                    <div className="mt-2 pt-2 border-t border-amber-200 text-[11px]">
+                      <div className="flex flex-wrap gap-2 justify-between bg-amber-100/70 p-2 rounded-lg font-bold text-amber-950 mb-1.5">
+                        <span>✅ Días "LIBRO" en 2026: <strong>{ics2026Stats.libroCount}d</strong></span>
+                        <span>🏖️ Vac. + RM: <strong>{vac2026Input}d</strong></span>
+                        <span>🚫 Citas ignoradas: <strong>{ics2026Stats.ignoredCount}</strong></span>
+                      </div>
+                      <div className="grid grid-cols-6 sm:grid-cols-12 gap-1 text-center text-[9px] mb-1.5">
+                        {['E','F','M','A','M','J','J','A','S','O','N','D'].map((ml, idx) => (
+                          <div key={idx} className="bg-slate-100 rounded p-0.5 border border-slate-200">
+                            <span className="block text-slate-400 font-bold">{ml}</span>
+                            <span className="font-black text-slate-800">{ics2026Stats.byMonth[idx+1] || 0}</span>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="flex items-center justify-between gap-2 text-[10px] text-slate-600">
+                        <span>Vacaciones 2026 + día RM ya dado (36+1 = 37):</span>
+                        <input
+                          type="number"
+                          value={vac2026Input}
+                          onChange={e => {
+                            const v = parseInt(e.target.value, 10) || 0;
+                            setVac2026Input(v);
+                            localStorage.setItem('pln_vac2026', JSON.stringify(v));
+                            setWorked2026Input(Math.max(0, 365 - ics2026Stats.libroCount - v - (ics2026Stats.papDetected || 0)));
+                          }}
+                          className="w-12 border border-amber-300 rounded text-center font-black text-amber-900 py-0.5"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 <div className="flex items-center gap-3 mb-2 bg-white p-2.5 rounded-lg border border-amber-200">
                   <div className="flex-1">
                     <label className="block text-[10px] font-black text-amber-900 uppercase mb-0.5">Días trabajados en 2026:</label>
