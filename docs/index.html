@@ -542,10 +542,37 @@
     return hd;
   }, [selectedYear]);
 
-  // ── Convivencia de Transmisión: Sin asignar por defecto (se asigna manualmente cada año: V, S y D entre Oct y Dic) ──
+  // ── Convivencia de Transmisión: Sin asignar por defecto (se asigna manualmente cada año: solo V, S y D entre Oct y Dic; el Jueves empieza tarde-noche y trabajando de mañana no hace falta pedirlo) ──
   const convivenciaDays = customConvDays;
 
-  // ── Añadir días de convivencia a pedidos ──
+  const convWeekendOptions = useMemo(() => {
+    const opts = [];
+    const shortM = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+    // Fines de semana (V, S, D) desde mediados de octubre hasta mediados de diciembre
+    for (let m = 10; m <= 12; m++) {
+      const daysInM = new Date(selectedYear, m, 0).getDate();
+      for (let d = 1; d <= daysInM; d++) {
+        const fri = new Date(selectedYear, m - 1, d);
+        if (fri.getDay() !== 5) continue; // Solo Viernes
+        if (m === 10 && d < 15) continue;
+        if (m === 12 && d > 20) continue;
+        const sat = new Date(fri.getTime() + 86400000);
+        const sun = new Date(fri.getTime() + 2 * 86400000);
+        if (sun.getFullYear() !== selectedYear) continue;
+        const kFri = `${fri.getMonth()+1}-${fri.getDate()}`;
+        const kSat = `${sat.getMonth()+1}-${sat.getDate()}`;
+        const kSun = `${sun.getMonth()+1}-${sun.getDate()}`;
+        const sameMonth = fri.getMonth() === sun.getMonth();
+        const label = sameMonth
+          ? `V${fri.getDate()}–D${sun.getDate()} ${shortM[fri.getMonth()]}`
+          : `V${fri.getDate()} ${shortM[fri.getMonth()]}–D${sun.getDate()} ${shortM[sun.getMonth()]}`;
+        opts.push({ label, keys: [kFri, kSat, kSun], month: fri.getMonth() + 1 });
+      }
+    }
+    return opts;
+  }, [selectedYear]);
+
+  // ── Añadir días de convivencia a pedidos (solo V, S y D; el Jueves no hace falta al ir de mañana) ──
   const addConvivencia = () => {
     if (!convivenciaDays || convivenciaDays.size === 0) {
       setClickMode('convivencia');
@@ -557,17 +584,18 @@
       const [ms, ds] = k.split('-').map(Number);
       const mObj = dynamicMonths.find(x => x.id === ms);
       if (!mObj) return false;
-      const dow = (mObj.startDay + ds - 1) % 7;
+      const dow = (mObj.startDay + ds - 1) % 7; // 0=L, 1=M, 2=X, 3=J, 4=V, 5=S, 6=D
+      if (dow === 3) return false; // Jueves tarde-noche: trabajando de mañana no hace falta pedirlo
       const isWE = dow >= 5;
       return !baseOffDays.has(k) && !vacationDays.has(k) && !exhaustedDays.has(k)
              && getRemainingQuota(ms, ds, isWE) > 0;
     });
-    if (!available.length) { showError('Los días de Convivencia asignados ya los libras, no tienen cupo o están bloqueados.'); return; }
+    if (!available.length) { showError('Los días V, S y D de Convivencia asignados ya los libras, no tienen cupo o están bloqueados.'); return; }
     pushHistory();
     const n = new Set(requestedDays);
     available.forEach(k => n.add(k));
     setRequestedDays(n);
-    notify(`✅ ${available.length} días de Convivencia de Transmisión añadidos a tus peticiones.`, 'success');
+    notify(`✅ ${available.length} día(s) de Convivencia (V, S y D) añadidos a tus peticiones (el jueves no hace falta al ir de mañana).`, 'success');
   };
 
   const activeMaqPerSlot = useMemo(() => {
@@ -2608,16 +2636,33 @@
             </div>
 
             {clickMode === 'convivencia' && (
-              <div className="mb-3 bg-purple-900 text-purple-50 p-3 rounded-xl border-2 border-purple-400 shadow-md flex flex-wrap items-center justify-between gap-2 text-xs no-print">
-                <div>
-                  <strong className="text-white block">🤝 Asignar Convivencia de Transmisión ({selectedYear}):</strong>
-                  <span>Haz clic en el calendario sobre el <b>Viernes, Sábado y Domingo (V, S y D)</b> entre octubre y diciembre en que caiga tu convivencia este año ({customConvDays.size} día{customConvDays.size===1?'':'s'} marcado{customConvDays.size===1?'':'s'}).</span>
+              <div className="mb-3 bg-purple-900 text-purple-50 p-3 rounded-xl border-2 border-purple-400 shadow-md flex flex-col gap-2 text-xs no-print">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <strong className="text-white block">🤝 Asignar Convivencia de Transmisión ({selectedYear}) — Solo V, S y D:</strong>
+                    <span>Como empieza el <b>jueves por la tarde-noche</b> y trabajas de <b>mañana</b>, el jueves no necesitas pedirlo. Marca en el calendario el <b>Viernes, Sábado y Domingo (V, S y D)</b> o elige el finde con 1 clic:</span>
+                  </div>
+                  <div className="flex gap-2 shrink-0">
+                    {customConvDays.size > 0 && (
+                      <button onClick={() => setCustomConvDays(new Set())} className="bg-purple-700 hover:bg-purple-600 text-white font-bold px-2.5 py-1 rounded-lg border border-purple-400 text-[11px]">🗑️ Dejar sin asignar</button>
+                    )}
+                    <button onClick={() => setClickMode('pedir')} className="bg-white text-purple-950 font-black px-3 py-1 rounded-lg text-[11px]">✓ Listo</button>
+                  </div>
                 </div>
-                <div className="flex gap-2 shrink-0">
-                  {customConvDays.size > 0 && (
-                    <button onClick={() => setCustomConvDays(new Set())} className="bg-purple-700 hover:bg-purple-600 text-white font-bold px-2.5 py-1 rounded-lg border border-purple-400 text-[11px]">🗑️ Dejar sin asignar</button>
-                  )}
-                  <button onClick={() => setClickMode('pedir')} className="bg-white text-purple-950 font-black px-3 py-1 rounded-lg text-[11px]">✓ Listo</button>
+                <div className="flex flex-wrap gap-1.5 pt-1 border-t border-purple-700/80">
+                  {convWeekendOptions.map(opt => {
+                    const isSelected = opt.keys.every(k => customConvDays.has(k)) && customConvDays.size === 3;
+                    return (
+                      <button
+                        key={opt.label}
+                        onClick={() => { setCustomConvDays(new Set(opt.keys)); setMobileMonth(opt.month); }}
+                        className={`px-2 py-1 rounded-lg text-[10px] font-black border transition-all ${
+                          isSelected ? 'bg-amber-400 text-slate-950 border-amber-200 ring-2 ring-white' : 'bg-purple-800/90 hover:bg-purple-700 text-purple-100 border-purple-500'
+                        }`}>
+                        {opt.label}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             )}
