@@ -1691,7 +1691,8 @@
   const handleClearAll = () => {
     if (!window.confirm('¿Borrar todos los días marcados? No se puede deshacer.')) return;
     setRequestedDays(new Set()); setPlanA(new Set()); setPlanB(new Set());
-    setPlanC(new Set()); setExhaustedDays(new Set()); setCustomConvDays(new Set()); setHistory([]);
+    setPlanC(new Set()); setExhaustedDays(new Set()); setCustomConvDays(new Set());
+    setManualCredit(null); setManualObligLV(null); setHistory([]);
   };
 
   const renderWishlist = (title, arr, isPA=false, isPB=false, isPC=false) => {
@@ -2061,6 +2062,14 @@
                   />
                   <button onClick={() => setManualCredit(Math.floor(stats.credit) + 1)} className="px-2 py-0.5 text-emerald-400 hover:text-white font-black text-sm">+</button>
                 </div>
+                {manualCredit !== null && (
+                  <button
+                    onClick={() => { setManualCredit(null); setManualObligLV(null); notify(`🎯 Créditos reseteados al cálculo automático de la Opción A (${stats.autoCredit} días).`, 'success'); }}
+                    className="text-[10px] bg-emerald-600 hover:bg-emerald-500 text-white px-2 py-1 rounded-lg font-black shadow flex items-center gap-1 border border-emerald-400 animate-pulse"
+                    title="Volver al cálculo automático de tu cuadrante en la Opción A">
+                    🔄 Auto ({stats.autoCredit}d)
+                  </button>
+                )}
               </div>
 
               <div className="flex items-center gap-1 text-[11px] bg-slate-900/80 px-2 py-1 rounded-lg border border-slate-700" title="Obligatorios entre semana (L-V) y libres (S-D)">
@@ -2318,7 +2327,10 @@
               <div className="bg-blue-50 p-3 md:p-5 rounded-xl border border-blue-200 shadow-sm">
                 <div className="flex justify-between items-center mb-2">
                   <h3 className="font-black text-blue-900 uppercase tracking-wide text-xs">3. Cómputo Anual</h3>
-                  <button onClick={() => { setManualCredit(9); setManualObligLV(null); }} className="text-[9px] bg-blue-100 hover:bg-blue-200 text-blue-800 px-1.5 py-0.5 rounded font-bold">9 días (Def.)</button>
+                  <div className="flex gap-1">
+                    <button onClick={() => { setManualCredit(null); setManualObligLV(null); notify(`🎯 Aplicado cálculo automático Opción A (${stats.autoCredit} días).`, 'success'); }} className="text-[9px] bg-blue-600 hover:bg-blue-700 text-white px-1.5 py-0.5 rounded font-black">Auto ({stats.autoCredit}d)</button>
+                    <button onClick={() => { setManualCredit(9); setManualObligLV(null); }} className="text-[9px] bg-blue-100 hover:bg-blue-200 text-blue-800 px-1.5 py-0.5 rounded font-bold">9d</button>
+                  </div>
                 </div>
                 <div className="flex justify-between items-end mb-3">
                   <div>
