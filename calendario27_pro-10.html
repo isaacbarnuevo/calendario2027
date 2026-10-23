@@ -2553,7 +2553,40 @@
                       <p className="text-[9px] text-yellow-800 font-bold text-center animate-pulse">
                         👉 Haz clic en cualquier día del calendario para añadirlo o quitarlo de tus vacaciones de {selectedYear}.
                       </p>
-                      <div className="text-[9px] font-black text-slate-700 uppercase">⚡ Atajos para cambiar por Quincenas:</div>
+                      {/* Botón especial Reconocimiento Médico 31 Agosto */}
+                      <div className="bg-amber-100/90 border border-amber-400 p-2 rounded-lg flex items-center justify-between gap-2 shadow-sm">
+                        <div>
+                          <div className="text-[10px] font-black text-amber-950 flex items-center gap-1">
+                            🩺 Reconocimiento Médico (RM):
+                          </div>
+                          <div className="text-[9px] text-amber-900 font-semibold">
+                            Empalmar 31 de Agosto tras las vacaciones de verano.
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => {
+                            const cur = new Set(vacationDays);
+                            if (cur.has('8-31')) {
+                              cur.delete('8-31');
+                              notify('Retirado el 31 de Agosto de vacaciones.', 'info');
+                            } else {
+                              cur.add('8-31');
+                              notify('✅ Añadido el 31 de Agosto por Reconocimiento Médico (8 al 31 Agosto).', 'success');
+                            }
+                            setVacByYear(prev => ({
+                              ...prev,
+                              [selectedYear]: {
+                                ...(prev[selectedYear] || {}),
+                                customDays: [...cur]
+                              }
+                            }));
+                          }}
+                          className={`px-2.5 py-1 rounded-md text-[10px] font-black border transition-all shadow-sm ${vacationDays.has('8-31') ? 'bg-amber-500 text-slate-950 border-amber-600' : 'bg-white hover:bg-amber-200 text-amber-950 border-amber-400'}`}>
+                          {vacationDays.has('8-31') ? '✅ 31 Ago añadido (RM)' : '➕ Poner 31 Ago (RM)'}
+                        </button>
+                      </div>
+
+                      <div className="text-[9px] font-black text-slate-700 uppercase">🏖️ Quincenas Verano:</div>
                       <div className="grid grid-cols-2 gap-1 text-[9px]">
                         <button onClick={() => toggleQuincena(7, 1, 7, 15, true)} className="bg-emerald-50 hover:bg-emerald-100 text-emerald-800 p-1 rounded border border-emerald-300 font-bold">➕ 1ª Jul (1-15)</button>
                         <button onClick={() => toggleQuincena(7, 1, 7, 15, false)} className="bg-rose-50 hover:bg-rose-100 text-rose-800 p-1 rounded border border-rose-300 font-bold">➖ 1ª Jul (1-15)</button>
@@ -2567,6 +2600,22 @@
                         <button onClick={() => toggleQuincena(9, 1, 9, 15, false)} className="bg-rose-50 hover:bg-rose-100 text-rose-800 p-1 rounded border border-rose-300 font-bold">➖ 1ª Sep (1-15)</button>
                         <button onClick={() => toggleQuincena(9, 16, 9, 30, true)} className="bg-emerald-50 hover:bg-emerald-100 text-emerald-800 p-1 rounded border border-emerald-300 font-bold">➕ 2ª Sep (16-30)</button>
                         <button onClick={() => toggleQuincena(9, 16, 9, 30, false)} className="bg-rose-50 hover:bg-rose-100 text-rose-800 p-1 rounded border border-rose-300 font-bold">➖ 2ª Sep (16-30)</button>
+                      </div>
+
+                      <div className="text-[9px] font-black text-slate-700 uppercase pt-1">❄️ Quincenas Invierno:</div>
+                      <div className="grid grid-cols-2 gap-1 text-[9px]">
+                        <button onClick={() => toggleQuincena(1, 1, 1, 15, true)} className="bg-emerald-50 hover:bg-emerald-100 text-emerald-800 p-1 rounded border border-emerald-300 font-bold">➕ 1ª Ene (1-15)</button>
+                        <button onClick={() => toggleQuincena(1, 1, 1, 15, false)} className="bg-rose-50 hover:bg-rose-100 text-rose-800 p-1 rounded border border-rose-300 font-bold">➖ 1ª Ene (1-15)</button>
+                        <button onClick={() => toggleQuincena(1, 16, 1, 31, true)} className="bg-emerald-50 hover:bg-emerald-100 text-emerald-800 p-1 rounded border border-emerald-300 font-bold">➕ 2ª Ene (16-31)</button>
+                        <button onClick={() => toggleQuincena(1, 16, 1, 31, false)} className="bg-rose-50 hover:bg-rose-100 text-rose-800 p-1 rounded border border-rose-300 font-bold">➖ 2ª Ene (16-31)</button>
+                        <button onClick={() => toggleQuincena(2, 1, 2, 15, true)} className="bg-emerald-50 hover:bg-emerald-100 text-emerald-800 p-1 rounded border border-emerald-300 font-bold">➕ 1ª Feb (1-15)</button>
+                        <button onClick={() => toggleQuincena(2, 1, 2, 15, false)} className="bg-rose-50 hover:bg-rose-100 text-rose-800 p-1 rounded border border-rose-300 font-bold">➖ 1ª Feb (1-15)</button>
+                        <button onClick={() => toggleQuincena(11, 1, 11, 15, true)} className="bg-emerald-50 hover:bg-emerald-100 text-emerald-800 p-1 rounded border border-emerald-300 font-bold">➕ 1ª Nov (1-15)</button>
+                        <button onClick={() => toggleQuincena(11, 1, 11, 15, false)} className="bg-rose-50 hover:bg-rose-100 text-rose-800 p-1 rounded border border-rose-300 font-bold">➖ 1ª Nov (1-15)</button>
+                        <button onClick={() => toggleQuincena(11, 16, 11, 30, true)} className="bg-emerald-50 hover:bg-emerald-100 text-emerald-800 p-1 rounded border border-emerald-300 font-bold">➕ 2ª Nov (16-30)</button>
+                        <button onClick={() => toggleQuincena(11, 16, 11, 30, false)} className="bg-rose-50 hover:bg-rose-100 text-rose-800 p-1 rounded border border-rose-300 font-bold">➖ 2ª Nov (16-30)</button>
+                        <button onClick={() => toggleQuincena(12, 1, 12, 15, true)} className="bg-emerald-50 hover:bg-emerald-100 text-emerald-800 p-1 rounded border border-emerald-300 font-bold">➕ 1ª Dic (1-15)</button>
+                        <button onClick={() => toggleQuincena(12, 1, 12, 15, false)} className="bg-rose-50 hover:bg-rose-100 text-rose-800 p-1 rounded border border-rose-300 font-bold">➖ 1ª Dic (1-15)</button>
                       </div>
                     </div>
                   )}
