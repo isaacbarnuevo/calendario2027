@@ -601,8 +601,24 @@
     return hd;
   }, [selectedYear]);
 
-  // ── Convivencia de Transmisión: Sin asignar por defecto (se asigna manualmente cada año: solo V, S y D entre Oct y Dic; el Jueves empieza tarde-noche y trabajando de mañana no hace falta pedirlo) ──
-  const convivenciaDays = customConvDays;
+  // ── Convivencia de Transmisión: por defecto asigna el último fin de semana de Octubre (V, S y D); el Jueves se trabaja de mañana y no hace falta pedirlo ──
+  const getDefaultConvDays = (yr) => {
+    const lastDayOct = new Date(yr, 9, 31);
+    const dow = (lastDayOct.getDay() + 6) % 7; // L=0..D=6
+    const sunD = 31 - ((dow === 6) ? 0 : (dow + 1));
+    const sun = new Date(yr, 9, sunD);
+    const sat = new Date(sun.getTime() - 86400000);
+    const fri = new Date(sun.getTime() - 2 * 86400000);
+    return new Set([
+      `${fri.getMonth()+1}-${fri.getDate()}`,
+      `${sat.getMonth()+1}-${sat.getDate()}`,
+      `${sun.getMonth()+1}-${sun.getDate()}`
+    ]);
+  };
+
+  const convivenciaDays = (customConvDays && customConvDays.size > 0)
+    ? customConvDays
+    : getDefaultConvDays(selectedYear);
 
   const convWeekendOptions = useMemo(() => {
     const opts = [];
@@ -1301,103 +1317,115 @@
     return count;
   })();
 
-  // ── Smart suggestion (Prioridades Opción A: Verano, No Lectivos, Puentes Personales 4d y Reducción Semanas de 5d) ──
+  // ── Smart suggestion (Prioridades Reales del Maquinista: 1º Convivencia V+S+D, 2º Fines de semana Verano, 3º Puentes L-V Verano, 4º No Lectivos, 5º Puentes Personales) ──
   const suggestOptimalDays = () => {
     const creditNeeded = Math.floor(stats.credit);
     if (creditNeeded <= 0) { showError('No hay días de crédito disponibles.'); return; }
 
-    // Fechas especiales calculadas
-    const easter = getEasterSunday(selectedYear);
-    const addDays = (date, days) => new Date(date.getTime() + days * 86400000);
-    const fmtKey  = (date) => `${date.getMonth()+1}-${date.getDate()}`;
+    const maxSD = Math.max(0, creditNeeded - Math.floor(stats.obligatoryLV)); // Hasta 4 días S-D (o 3 si RM)
+    const lvNeeded = Math.min(Math.floor(stats.obligatoryLV), creditNeeded);
 
-    const palmSunday      = fmtKey(addDays(easter, -7));   // Domingo de Ramos
-    const easterSunday    = fmtKey(easter);                // Domingo de Pascua
-    const pentecostSunday = fmtKey(addDays(easter, 49));   // Domingo de Pentecostés
-    const specialSundays  = new Set([palmSunday, easterSunday, pentecostSunday]);
-
-    // Festivos nacionales fijos
-    const nationalHolidays = new Set(['1-1','1-6','5-1','5-2','8-15','10-12','11-1','11-9','12-6','12-8','12-25']);
-
+    // Jerarquía de puntuación inteligente (menor puntuación = máxima prioridad)
     const scoreDay = (m, d, isWE) => {
       const k = `${m}-${d}`;
       const isVac = vacationDays.has(k);
+      if (isVac) return 999;
 
-      // ── Días marcados manualmente como No Lectivos tienen máxima prioridad tras verano ──
-      if (nonSchoolDays.has(k) && !isVac) return 22;
-
-      // ── Julio y Agosto (solo si no están en vacaciones) ──
-      if ((m===7||m===8) && !isVac) {
-        return isWE ? 20 : 10;   // P1 L-V = 10 | P2 S-D = 20
+      // ── PRIORIDAD 1: Convivencia de Transmisión (último fin de semana de octubre) ──
+      // Es sagrada: Sábado y Domingo (S-D) y Viernes (L-V)
+      if (convivenciaDays.has(k)) {
+        return isWE ? 1 : 2; // Máxima prioridad absoluta
       }
 
-      // ── Junio ──
-      if (m===6 && !isVac) {
-        const isNoLectivo = highDemandDays.has(k) || nationalHolidays.has(k) || nonSchoolDays.has(k);
-        if (!isWE && isNoLectivo) return 28;  // P3a entre semana no lectivo junio
-        if (isWE)                 return 36;  // P3a finde de junio
-        if (!isWE && personalBridgeDays.has(k)) return 32;
-        if (!isWE)                return 45;  // Junio entre semana normal
+      // ── PRIORIDAD 2: Fines de semana de Verano (Julio y Agosto donde no haya vacaciones) ──
+      // Con buen turno se agotan antes que nada; hay que asegurarlos
+      if ((m === 7 || m === 8) && isWE) {
+        return 3;
       }
 
-      // ── Domingos especiales (Ramos, Pascua, Pentecostés) ──
-      if (specialSundays.has(k)) return 34;
+      // ── PRIORIDAD 3: Viernes y Lunes de Verano (puentes largos alrededor del descanso) ──
+      if ((m === 7 || m === 8) && !isWE) {
+        const mObj = dynamicMonths.find(x => x.id === m);
+        const dow = mObj ? (mObj.startDay + d - 1) % 7 : 0;
+        if (dow === 4 || dow === 0) return 4; // Viernes o Lunes de verano
+        return 5; // Martes, Miércoles, Jueves de verano
+      }
 
-      // ── Puentes Personales de 4 días (J+V previos o L+M posteriores a tu finde LIB) ──
-      if (!isWE && personalBridgeDays.has(k)) return 33;
+      // ── PRIORIDAD 4: Días No Lectivos escolares (Semana Santa, Puentes escolares) ──
+      if (nonSchoolDays.has(k)) {
+        return isWE ? 7 : 6;
+      }
 
-      // ── Días no lectivos / festivos del año (resto de meses) ──
-      if (nationalHolidays.has(k) || highDemandDays.has(k)) return 48;
+      // ── PRIORIDAD 5: Fines de semana de Junio o resto del año ──
+      if (m === 6 && isWE) return 8;
+      if (isWE) return 10;
 
-      // ── Convivencia de Transmisión ──
-      if (convivenciaDays.has(k)) return 52;
+      // ── PRIORIDAD 6: Puentes Personales de 4 días (pegados a tus findes libres de cuadrante) ──
+      if (!isWE && personalBridgeDays.has(k)) return 12;
 
-      // ── Fines de semana del resto del año ──
-      if (isWE) return 58;
+      // ── PRIORIDAD 7: Días entre semana de Junio ──
+      if (m === 6 && !isWE) return 14;
 
-      // ── Semanas largas de 5 días L-V (reducir semana de 5d a 4d) ──
-      if (!isWE && longWeekDays.has(k)) return 64;
+      // ── PRIORIDAD 8: Reducción de semanas largas de 5 días ──
+      if (!isWE && longWeekDays.has(k)) return 16;
 
-      // ── Entre semana de Oct / Nov / Dic (último recurso L-V) ──
-      if (m===10||m===11||m===12) return 70;
-
-      // ── Cualquier otro día entre semana ──
-      return 99;
+      // ── Resto de días ordinarios entre semana ──
+      return 20 + m;
     };
-    // Unificar todos los días disponibles en una sola lista priorizada
+
+    // Recoger todos los días disponibles con cupo en tu turno
     const allAvail = [];
-    let availLVCount = 0, availSDCount = 0;
     dynamicMonths.forEach(mObj => {
-      if (mObj.id===1) return;
-      for (let d=1; d<=mObj.days; d++) {
-        const key=`${mObj.id}-${d}`, dow=(mObj.startDay+d-1)%7, isWE=dow>=5;
-        if (baseOffDays.has(key)||vacationDays.has(key)||exhaustedDays.has(key)) continue;
-        if (getRemainingQuota(mObj.id,d,isWE)<=0) continue;
-        const sc=scoreDay(mObj.id,d,isWE);
-        allAvail.push({key,sc,isWE});
-        if (isWE) availSDCount++; else availLVCount++;
+      if (mObj.id === 1) return; // Enero bloqueado para crédito
+      for (let d = 1; d <= mObj.days; d++) {
+        const key = `${mObj.id}-${d}`;
+        const dow = (mObj.startDay + d - 1) % 7;
+        const isWE = dow >= 5;
+        if (baseOffDays.has(key) || vacationDays.has(key) || exhaustedDays.has(key)) continue;
+        if (getRemainingQuota(mObj.id, d, isWE) <= 0) continue;
+        const sc = scoreDay(mObj.id, d, isWE);
+        allAvail.push({ key, sc, isWE, m: mObj.id, d, dow });
       }
     });
-    // Ordenar por prioridad global (menor score = mejor)
-    allAvail.sort((a,b) => a.sc !== b.sc ? a.sc-b.sc : 0);
+
+    allAvail.sort((a,b) => a.sc !== b.sc ? a.sc - b.sc : (a.m !== b.m ? a.m - b.m : a.d - b.d));
 
     pushHistory();
-    const newDays=new Set();
-    const lvNeeded = Math.min(Math.floor(stats.obligatoryLV), availLVCount);
-    let lvChosen=0;
+    const chosen = [];
+    let countLV = 0;
+    let countSD = 0;
 
-    // Primera pasada: cubrir mínimo L-V obligatorio con los mejores L-V disponibles
-    const lvCandidates = allAvail.filter(x=>!x.isWE);
-    lvCandidates.slice(0, lvNeeded).forEach(x => { newDays.add(x.key); lvChosen++; });
-
-    // Segunda pasada: completar el crédito total con los mejores días aún no elegidos
-    for (const {key} of allAvail) {
-      if (newDays.size >= creditNeeded) break;
-      if (!newDays.has(key)) newDays.add(key);
+    // 1. Asignar los mejores fines de semana (S-D) hasta el máximo permitido (4 S-D)
+    const sdCandidates = allAvail.filter(x => x.isWE);
+    for (const cand of sdCandidates) {
+      if (countSD >= maxSD || chosen.length >= creditNeeded) break;
+      chosen.push(cand);
+      countSD++;
     }
 
-    setRequestedDays(newDays);
-    showError(`Sugeridos ${newDays.size} días óptimos (${lvChosen} L-V obligatorios, priorizando verano, no lectivos y tus 🌉 Puentes Personales).`);
+    // 2. Asignar los mejores días L-V hasta cubrir los obligatorios (7 L-V)
+    const lvCandidates = allAvail.filter(x => !x.isWE);
+    for (const cand of lvCandidates) {
+      if (countLV >= lvNeeded || chosen.length >= creditNeeded) break;
+      chosen.push(cand);
+      countLV++;
+    }
+
+    // 3. Si aún queda crédito por completar, rellenar con los mejores días restantes
+    const chosenKeys = new Set(chosen.map(x => x.key));
+    for (const cand of allAvail) {
+      if (chosen.length >= creditNeeded) break;
+      if (!chosenKeys.has(cand.key)) {
+        if (cand.isWE && countSD >= maxSD) continue;
+        chosen.push(cand);
+        chosenKeys.add(cand.key);
+        if (cand.isWE) countSD++; else countLV++;
+      }
+    }
+
+    const finalSet = new Set(chosen.map(x => x.key));
+    setRequestedDays(finalSet);
+    notify(`🎯 Sugeridos ${finalSet.size} días óptimos con tu estrategia: ${countSD} fines de semana (Convivencia y Verano) + ${countLV} L-V (Puentes de Verano y No Lectivos).`, 'success');
   };
 
   // ── Export ICS ──
